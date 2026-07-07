@@ -1,0 +1,33 @@
+[gd_resource type="TileSet" format=3 uid="uid://c2l1yh1ftqxqk"]
+
+[ext_resource type="Texture2D" uid="uid://s85w18m663qe" path="res://Assets/Tilesets/Decorations/Bushes/Props.png" id="1_r5sjc"]
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_rbauc"]
+texture = ExtResource("1_r5sjc")
+texture_region_size = Vector2i(64, 64)
+0:0/0 = 0
+0:0/0/texture_origin = Vector2i(0, 13)
+1:0/0 = 0
+1:0/0/texture_origin = Vector2i(0, 13)
+1:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-10.666666, -21.333332, 0, -21.333332, 21.333336, -21.333332, 16, 0, 0, 0, -16, 0, -21.333332, -10.666666)
+2:0/0 = 0
+2:0/0/texture_origin = Vector2i(0, 13)
+3:0/0 = 0
+3:0/0/texture_origin = Vector2i(0, 19)
+3:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-16, -32, 16, -32, 32, -16, 16, 0, -16, 0, -32, -16)
+4:0/0 = 0
+4:0/0/texture_origin = Vector2i(0, 13)
+5:0/0 = 0
+5:0/0/texture_origin = Vector2i(0, 13)
+6:0/0 = 0
+6:0/0/texture_origin = Vector2i(0, 13)
+7:0/0 = 0
+7:0/0/texture_origin = Vector2i(0, 13)
+8:0/0 = 0
+8:0/0/texture_origin = Vector2i(0, 13)
+
+[resource]
+tile_size = Vector2i(64, 64)
+physics_layer_0/collision_layer = 1
+physics_layer_0/collision_mask = 0
+sources/0 = SubResource("TileSetAtlasSource_rbauc")

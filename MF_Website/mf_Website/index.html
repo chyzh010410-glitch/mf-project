@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preload" as="image" href="/assets/forest-hero-03.jpg" media="(max-width: 800px)">
+    <link rel="preload" as="image" href="/assets/forest-hero-03-upscaled-rotated.jpg" media="(min-width: 801px)">
+    <link rel="preload" as="image" href="/assets/forest-moss-card-mobile.jpg" media="(max-width: 1000px)">
+    <link rel="preload" as="image" href="/assets/forest-moss-card.jpg" media="(min-width: 1001px)">
+    <link rel="preload" as="image" href="/assets/forest-canopy-mobile.jpg" media="(max-width: 700px)">
+    <title>林木自然系统</title>
+    <script>
+        if ("scrollRestoration" in history) {
+            history.scrollRestoration = "manual";
+        }
+
+        scrollTo(0, 0);
+        addEventListener("pageshow", function () {
+            scrollTo(0, 0);
+        });
+    </script>
+    <style>
+        html,
+        body {
+            margin: 0;
+            background: #a8ddba;
+            color: #061a14;
+        }
+
+        body.is-preloader-loading {
+            overflow: hidden;
+        }
+
+        body.is-preloader-loading>* {
+            visibility: hidden;
+        }
+
+        body.is-preloader-loading::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: #04110f;
+            z-index: 2147483647;
+        }
+    </style>
+</head>
+
+<body class="is-intro-active is-preloader-loading lang-zh">
+    <nav class="site-nav" aria-label="Main navigation">
+        <a class="site-nav__brand" href="#eco-story" aria-label="苗丰 MF">
+            <span class="site-nav__logo-shell">
+                <img class="site-nav__logo" src="/assets/logo-light-transparent.png" alt="">
+            </span>
+            <span class="site-nav__brand-text" data-i18n-nav-brand>苗丰 MF</span>
+        </a>
+
+        <div class="site-nav__links">
+            <a class="site-nav__link" href="#eco-story" data-i18n-nav-story>生态故事</a>
+            <a class="site-nav__link" href="#" data-i18n-nav-encyclopedia>树木百科</a>
+            <button class="site-nav__pet" type="button" data-forest-pet-trigger>
+                <img src="/assets/pet/idle/idle.gif" alt="">
+                <span data-i18n-nav-pet>苗丰精灵</span>
+            </button>
+            <a class="site-nav__link" href="#" data-i18n-nav-mall>苗木商城</a>
+            <a class="site-nav__link" href="#" data-i18n-nav-merchant>商家入驻</a>
+        </div>
+
+        <div class="site-nav__tools">
+            <a class="site-nav__cta" href="#" data-i18n-nav-enter-mall>进入商城</a>
+            <button class="site-nav__tool lang-toggle" type="button" aria-label="Switch language">EN</button>
+        </div>
+
+        <div class="site-nav__mobile-actions">
+            <button class="site-nav__pet" type="button" data-forest-pet-trigger>
+                <span data-i18n-nav-pet-short>精灵</span>
+            </button>
+            <a class="site-nav__mobile-mall" href="#" data-i18n-nav-mall-short>商城</a>
+            <button class="site-nav__tool lang-toggle" type="button" aria-label="Switch language">EN</button>
+            <details class="site-nav__menu">
+                <summary class="site-nav__menu-button" data-i18n-nav-menu>菜单</summary>
+                <div class="site-nav__menu-list">
+                    <a class="site-nav__link" href="#eco-story" data-i18n-nav-story>生态故事</a>
+                    <a class="site-nav__link" href="#" data-i18n-nav-encyclopedia>树木百科</a>
+                    <button class="site-nav__pet" type="button" data-forest-pet-trigger>
+                        <img src="/assets/pet/idle/idle.gif" alt="">
+                        <span data-i18n-nav-pet>苗丰精灵</span>
+                    </button>
+                    <a class="site-nav__link" href="#" data-i18n-nav-mall>苗木商城</a>
+                    <a class="site-nav__link" href="#" data-i18n-nav-merchant>商家入驻</a>
+                    <a class="site-nav__cta" href="#" data-i18n-nav-enter-mall>进入商城</a>
+                </div>
+            </details>
+        </div>
+    </nav>
+
+    <div class="preloader-backdrop">
+        <div class="pb-row">
+            <div class="pb-col">
+                <p>林间记忆</p>
+            </div>
+            <div class="pb-col">
+                <p>//// 绿意正在生长 ////</p>
+            </div>
+            <div class="pb-col">
+                <p>生态修复 &gt; 17%</p>
+            </div>
+            <div class="pb-col">
+                <p>枝叶正在舒展</p>
+                <p>年轮渐渐清晰</p>
+            </div>
+            <div class="pb-col">
+                <p>雨水即将落下</p>
+                <p>回到 -- 土壤层</p>
+            </div>
+            <div class="pb-col">
+                <p>树冠 F-9</p>
+            </div>
+        </div>
+        <div class="pb-row">
+            <div class="pb-col">
+                <p>林间记忆</p>
+            </div>
+            <div class="pb-col">
+                <p>//// 绿意正在生长 ////</p>
+            </div>
+            <div class="pb-col">
+                <p>生态修复 &gt; 17%</p>
+            </div>
+            <div class="pb-col">
+                <p>枝叶正在舒展</p>
+                <p>年轮渐渐清晰</p>
+            </div>
+            <div class="pb-col">
+                <p>雨水即将落下</p>
+                <p>回到 -- 土壤层</p>
+            </div>
+            <div class="pb-col">
+                <p>树冠 F-9</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="preloader">
+        <div class="p-row">
+            <p>唤醒森林</p>
+        </div>
+        <div class="p-row">
+            <div class="p-col">
+                <div class="p-sub-col">
+                    <p>第一阶段</p>
+                    <p>种子序列</p>
+                </div>
+                <div class="p-sub-col">
+                    <p>生命扫描</p>
+                    <p>七层林相</p>
+                </div>
+            </div>
+            <div class="p-col">
+                <p>绿径 17</p>
+            </div>
+        </div>
+
+        <button class="preloader-btn-container" type="button" aria-label="进入林间">
+            <img id="pbc-logo" src="/assets/logo-light-transparent.png" alt="">
+            <p id="pbc-label">进入林间</p>
+            <p id="pbc-outro-label">绿意已连接</p>
+
+            <span class="pbc-svg-strokes" aria-hidden="true">
+                <svg viewBox="0 0 320 320" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle class="stroke-track" cx="160" cy="160" r="155" stroke="#1f463d" stroke-width="2"
+                        stroke-dasharray="974" stroke-dashoffset="974" />
+                    <circle class="stroke-progress" cx="160" cy="160" r="155" stroke="#b8f1d1" stroke-width="2"
+                        stroke-dasharray="974" stroke-dashoffset="974" />
+                </svg>
+            </span>
+        </button>
+    </div>
+
+    <section class="intro-hero">
+        <div class="preloader-revealer"></div>
+        <h1>绿水青山就是金山银山</h1>
+    </section>
+    <div class="ripple-reveal" aria-hidden="true"></div>
+
+    <main class="page-shell">
+        <section class="location-hero" id="eco-story">
+            <div class="hero-img">
+                <picture>
+                    <source media="(max-width: 800px)" srcset="/assets/forest-hero-03.jpg">
+                    <img src="/assets/forest-hero-03-upscaled-rotated.jpg" alt="">
+                </picture>
+            </div>
+            <div class="hero-mask"></div>
+
+            <div class="hero-grid-overlay">
+                <img src="/assets/Grid_Overlay.svg" alt="">
+            </div>
+
+            <div class="marker marker-1">
+                <span class="marker-icon"></span>
+                <p class="marker-label">长海</p>
+            </div>
+
+            <div class="marker marker-2">
+                <span class="marker-icon"></span>
+                <p class="marker-label">九寨沟景区</p>
+            </div>
+
+            <div class="hero-content">
+                <div class="hero-content-block">
+                    <div class="hero-content-copy">
+                        <h1>九寨沟景区</h1>
+                    </div>
+                </div>
+
+                <div class="hero-content-block">
+                    <div class="hero-content-copy">
+                        <h2>蓝绿海子</h2>
+                    <p>
+                            湖水澄澈见底，蓝绿层次随光线变化。
+                            山谷、森林与倒影在水面相遇。
+                    </p>
+                    </div>
+                </div>
+
+                <div class="hero-content-block">
+                    <div class="hero-content-copy">
+                        <h2>彩林山谷</h2>
+                    <p>
+                            林木沿山势铺开，四季都有不同颜色。
+                            沿栈道前行，风景一步一换。
+                    </p>
+                    </div>
+                </div>
+
+                <div class="hero-content-block">
+                    <div class="hero-content-copy">
+                        <h2>瀑布与雪山</h2>
+                    <p>
+                            飞瀑穿过林间，远山与云影相接。
+                            九寨沟把水、树、山都留在一幅画里。
+                    </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hero-scroll-progress-bar"></div>
+        </section>
+
+        <section class="final-poster">
+            <p>森林回到安静中心。</p>
+            <h1>绿色未来分屏卷轴</h1>
+        </section>
+
+        <section class="sticky">
+            <div class="sticky-header">
+                <h1>守护一片森林</h1>
+            </div>
+            <div class="card-container">
+                <div class="card-photo-composite" aria-hidden="true"></div>
+
+                <div class="card" id="card-1">
+                    <div class="card-float">
+                        <div class="card-front" aria-label="森林画面左侧"></div>
+                        <div class="card-back">
+                            <span>( 01 )</span>
+                            <p>苔藓覆盖的土地</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" id="card-2">
+                    <div class="card-float">
+                        <div class="card-front" aria-label="森林画面中部"></div>
+                        <div class="card-back">
+                            <span>( 02 )</span>
+                            <p>树冠之间的光路</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" id="card-3">
+                    <div class="card-float">
+                        <div class="card-front" aria-label="森林画面右侧"></div>
+                        <div class="card-back">
+                            <span>( 03 )</span>
+                            <p>森林深处的呼吸</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="scroll-progress-bar"></div>
+        </section>
+
+        <section class="client-about-panel">
+            <h1>继续滚动，好戏还在后面</h1>
+        </section>
+
+        <section class="client-services-panel">
+            <div class="client-services-header">
+                <h1>我替你整理好的生态行动</h1>
+            </div>
+            <div class="client-panel-cards" aria-hidden="true">
+                <div class="client-panel-card" id="client-panel-card-1">
+                    <div class="client-panel-card-wrapper">
+                        <div class="client-panel-card-inner">
+                            <div class="client-panel-card-front">
+                                <span>( 01 )</span>
+                                <p>苔藓覆盖的土地</p>
+                            </div>
+                            <div class="client-panel-card-back">
+                                <span>涵养水源</span>
+                                <p>让溪流回到森林深处</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="client-panel-card" id="client-panel-card-2">
+                    <div class="client-panel-card-wrapper">
+                        <div class="client-panel-card-inner">
+                            <div class="client-panel-card-front">
+                                <span>( 02 )</span>
+                                <p>树冠之间的光路</p>
+                            </div>
+                            <div class="client-panel-card-back">
+                                <span>修复土壤</span>
+                                <p>让苔藓和根系重新抓住土地</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="client-panel-card" id="client-panel-card-3">
+                    <div class="client-panel-card-wrapper">
+                        <div class="client-panel-card-inner">
+                            <div class="client-panel-card-front">
+                                <span>( 03 )</span>
+                                <p>森林深处的呼吸</p>
+                            </div>
+                            <div class="client-panel-card-back">
+                                <span>共生未来</span>
+                                <p>把人的脚步放轻一些</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>

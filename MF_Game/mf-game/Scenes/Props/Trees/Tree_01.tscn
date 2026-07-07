@@ -1,0 +1,77 @@
+[gd_scene format=3 uid="uid://dip786d2wc02x"]
+
+[ext_resource type="Shader" uid="uid://bojiv2bwtd04j" path="res://Scenes/Props/Trees/idle.gdshader" id="1_lrs5l"]
+[ext_resource type="Texture2D" uid="uid://cuhrehjqsbeem" path="res://Assets/Tilesets/Trees/Model_02/tree_size_02_optimized.png" id="2_fygfg"]
+[ext_resource type="Script" uid="uid://df8gfox6wef5o" path="res://Scripts/Props/Trees/tree.gd/new_script.gd" id="3_triod"]
+[ext_resource type="Texture2D" uid="uid://cyyxcurwou11r" path="res://Assets/Tilesets/Trees/Model_02/tree_size_02_idle_6frames.png" id="4_xnsg5"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_vr3qr"]
+shader = ExtResource("1_lrs5l")
+shader_parameter/strength = 1.0
+shader_parameter/speed = 1.0
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_vr3qr"]
+size = Vector2(156, 103.5)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_5jnvm"]
+atlas = ExtResource("4_xnsg5")
+region = Rect2(0, 0, 96, 96)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_bqthr"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5jnvm")
+}],
+"loop": 1,
+"name": &"idle",
+"speed": 1.0
+}]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_triod"]
+radius = 81.82
+
+[node name="Tree01" type="Node2D" unique_id=2074992697]
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=742025073]
+visible = false
+z_index = 11
+texture_filter = 1
+material = SubResource("ShaderMaterial_vr3qr")
+position = Vector2(-437.99997, -106.00001)
+scale = Vector2(10, 10)
+texture = ExtResource("2_fygfg")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Sprite2D" unique_id=775040331]
+position = Vector2(-1.800003, 18.474989)
+scale = Vector2(0.09999996, 0.09999996)
+shape = SubResource("RectangleShape2D_vr3qr")
+
+[node name="Sprite2D2" type="Sprite2D" parent="." unique_id=849095233]
+visible = false
+texture_filter = 1
+material = SubResource("ShaderMaterial_vr3qr")
+position = Vector2(-114.00006, -106)
+scale = Vector2(10, 10)
+texture = ExtResource("2_fygfg")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Sprite2D2" unique_id=2050037195]
+position = Vector2(-1.800003, 18.474989)
+scale = Vector2(0.09999996, 0.09999996)
+shape = SubResource("RectangleShape2D_vr3qr")
+
+[node name="StaticBody2D" type="StaticBody2D" parent="." unique_id=2100697420]
+z_index = 3
+script = ExtResource("3_triod")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="StaticBody2D" unique_id=60040008]
+unique_name_in_owner = true
+z_index = 10
+texture_filter = 1
+position = Vector2(28.999998, -108.99999)
+scale = Vector2(10, 10)
+sprite_frames = SubResource("SpriteFrames_bqthr")
+animation = &"idle"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StaticBody2D" unique_id=1811820706]
+shape = SubResource("CircleShape2D_triod")

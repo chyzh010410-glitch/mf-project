@@ -1,0 +1,319 @@
+.sticky {
+    height: 100svh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, #a8ddba, #c8ebcb 56%, #e1f3d8);
+    overflow: hidden;
+    contain: layout paint;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+.sticky-header {
+    position: absolute;
+    top: 20%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.sticky-header h1 {
+    position: relative;
+    text-align: center;
+    font-family: var(--font-ui);
+    font-size: clamp(2.8rem, 5vw, 5.2rem);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    will-change: transform, opacity;
+    transform: translateY(40px);
+    opacity: 0;
+}
+
+.card-container {
+    position: relative;
+    width: 75%;
+    display: flex;
+    perspective: 1200px;
+    perspective-origin: 50% 50%;
+    transform-style: preserve-3d;
+    transform: translateY(40px);
+    will-change: width, transform, opacity;
+}
+
+.card {
+    position: relative;
+    flex: 1;
+    aspect-ratio: 5/7;
+    transform-style: preserve-3d;
+    transform-origin: 50% 50%;
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+.card-photo-composite {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    border-radius: 20px;
+    background-image: url("/assets/forest-moss-card.jpg");
+    background-size: 100% 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+    pointer-events: none;
+    will-change: opacity;
+}
+
+.card-float {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    transform-style: preserve-3d;
+    will-change: transform, translate;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    animation: cardFloat 2.4s ease-in-out infinite;
+    animation-play-state: paused;
+}
+
+.sticky.is-floating .card-float {
+    animation-play-state: running;
+}
+
+#card-2 .card-float {
+    animation-delay: 0.18s;
+}
+
+#card-3 .card-float {
+    animation-delay: 0.36s;
+}
+
+@keyframes cardFloat {
+    0%,
+    100% {
+        translate: 0 0;
+    }
+
+    50% {
+        translate: 0 -0.75rem;
+    }
+}
+
+#card-1 {
+    border-radius: 20px 0 0 20px;
+    z-index: 2;
+}
+
+#card-2 {
+    z-index: 3;
+}
+
+#card-3 {
+    border-radius: 0 20px 20px 0;
+    z-index: 2;
+}
+
+.card-front,
+.card-back {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border-radius: inherit;
+    overflow: hidden;
+    will-change: transform;
+}
+
+.card-front {
+    background-image: url("/assets/forest-moss-card.jpg");
+    background-size: var(--card-bg-width, 300%) 100%;
+    background-position: var(--card-bg-x, center) center;
+    background-repeat: no-repeat;
+    background-color: var(--black);
+    transform: rotateY(0deg);
+    z-index: 2;
+}
+
+.card-back {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    transform: rotateY(180deg);
+    padding: 2rem;
+    z-index: 1;
+}
+
+.card-back span {
+    position: absolute;
+    top: 2rem;
+    left: 2rem;
+    opacity: 0.4;
+}
+
+.card-back p {
+    font-family: var(--font-ui);
+    font-size: clamp(1.35rem, 2.1vw, 2.1rem);
+    font-weight: 650;
+    line-height: 1.35;
+    letter-spacing: 0.06em;
+}
+
+body.lang-en .sticky-header h1 {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: clamp(3rem, 6vw, 6rem);
+    font-weight: 500;
+    letter-spacing: 0;
+}
+
+body.lang-en .card-back p {
+    font-family: "DM Sans", sans-serif;
+    font-size: clamp(1.25rem, 2vw, 2rem);
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: 0;
+}
+
+#card-1 .card-back {
+    background-color: var(--card-1);
+    color: var(--black);
+}
+
+#card-2 .card-back {
+    background-color: var(--card-2);
+    color: var(--light);
+}
+
+#card-3 .card-back {
+    background-color: var(--card-3);
+    color: var(--light);
+}
+
+.scroll-progress-bar {
+    position: absolute;
+    top: 50%;
+    right: 2rem;
+    transform: translateY(-50%);
+    width: 0.1rem;
+    height: 10rem;
+    background-color: rgba(255, 255, 255, 0.2);
+    --progress: 0;
+}
+
+.scroll-progress-bar::after {
+    content: "";
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-color: var(--light);
+    transform-origin: top;
+    transform: scaleY(var(--progress));
+    will-change: transform;
+}
+
+@media (max-width: 1000px) {
+    .sticky {
+        height: 100svh;
+        padding: 0;
+        transform: none;
+    }
+
+    .sticky-header {
+        position: absolute;
+        top: 18%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: min(92vw, 28rem);
+    }
+
+    .sticky-header h1 {
+        font-size: clamp(2rem, 11vw, 3.2rem);
+        line-height: 1.08;
+    }
+
+    .card-container {
+        width: 92%;
+        flex-direction: row;
+        gap: 0;
+        transform: translateY(40px);
+        perspective: 900px;
+        will-change: transform, opacity;
+    }
+
+    .card-photo-composite {
+        display: block;
+        position: absolute;
+        inset: 0;
+        width: auto;
+        max-width: none;
+        aspect-ratio: auto;
+        margin: 0;
+        background-image: url("/assets/forest-moss-card-mobile.jpg");
+        background-size: 100% 100%;
+        will-change: opacity, visibility;
+    }
+
+    .scroll-progress-bar {
+        display: none;
+    }
+
+    .card {
+        width: auto;
+        max-width: none;
+        margin: 0;
+        aspect-ratio: 5/7;
+        min-height: 0;
+        max-height: none;
+        will-change: transform, opacity;
+    }
+
+    .card-back {
+        display: flex;
+        padding: 0.7rem;
+    }
+
+    .card-back span {
+        top: 0.65rem;
+        left: 0.65rem;
+        font-size: 0.55rem;
+    }
+
+    .card-back p {
+        font-size: clamp(0.62rem, 2.9vw, 0.95rem);
+        line-height: 1.18;
+        letter-spacing: 0;
+    }
+
+    .card-front {
+        background-image: url("/assets/forest-moss-card-mobile.jpg");
+        background-size: var(--card-bg-width, 300%) 100%;
+        background-position: var(--card-bg-x, center) center;
+        will-change: auto;
+    }
+
+    body.lang-en .card-back p {
+        font-size: clamp(0.6rem, 2.8vw, 0.9rem);
+        line-height: 1.1;
+    }
+
+    .scroll-progress-bar {
+        right: 1rem;
+        height: 7rem;
+    }
+
+}
+
+@media (max-width: 420px) {
+    .card-back {
+        padding: 0.55rem;
+    }
+
+    .card-back span {
+        top: 0.55rem;
+        left: 0.55rem;
+    }
+
+    .card-back p {
+        font-size: clamp(0.54rem, 2.75vw, 0.78rem);
+    }
+}

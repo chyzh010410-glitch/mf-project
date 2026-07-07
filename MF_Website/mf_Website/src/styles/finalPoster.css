@@ -1,0 +1,84 @@
+.final-poster {
+    position: relative;
+    overflow: hidden;
+    min-height: 100svh;
+    padding: 4rem;
+    display: grid;
+    grid-template-columns: minmax(14rem, 0.8fr) minmax(0, 1.6fr);
+    align-items: center;
+    gap: 4rem;
+    isolation: isolate;
+    contain: layout paint;
+    background-color: var(--black);
+}
+
+.final-poster::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+        linear-gradient(90deg, rgba(4, 17, 15, 0.78), rgba(16, 38, 34, 0.42)),
+        url("/assets/forest-canopy.jpg") center / cover;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+.final-poster p {
+    position: relative;
+    max-width: 26rem;
+    font-family: var(--font-mono);
+    font-size: clamp(0.9rem, 1.05vw, 1rem);
+    line-height: 1.75;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+}
+
+.final-poster h1 {
+    position: relative;
+    max-width: 9ch;
+    font-family: var(--font-ui);
+    font-size: clamp(4rem, 9vw, 9.5rem);
+    font-weight: 750;
+    line-height: 1.05;
+    letter-spacing: 0.08em;
+}
+
+body.lang-en .final-poster p {
+    text-transform: uppercase;
+    font-family: "DM Mono", monospace;
+    font-size: clamp(0.85rem, 1vw, 1rem);
+    line-height: 1.4;
+    letter-spacing: 0;
+}
+
+body.lang-en .final-poster h1 {
+    max-width: 14ch;
+    text-transform: uppercase;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: clamp(4rem, 11vw, 12rem);
+    font-weight: 800;
+    line-height: 0.82;
+    letter-spacing: 0;
+}
+
+@media (max-width: 1000px) {
+    .final-poster {
+        min-height: 86svh;
+        padding: 3.5rem 1.5rem 2rem;
+        grid-template-columns: 1fr;
+        align-content: start;
+        gap: 1.4rem;
+    }
+
+    .final-poster::before {
+        background:
+            linear-gradient(90deg, rgba(4, 17, 15, 0.78), rgba(16, 38, 34, 0.42)),
+            url("/assets/forest-canopy-mobile.jpg") center top / cover;
+        transform: none;
+    }
+
+    .final-poster h1 {
+        font-size: clamp(3.2rem, 17vw, 6.4rem);
+    }
+}

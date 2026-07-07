@@ -1,0 +1,162 @@
+.mf-pet {
+    --mf-pet-safe-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+    --mf-pet-safe-right: max(24px, env(safe-area-inset-right, 0px));
+    --mf-pet-size: 96px;
+    --mf-pet-panel-width: 280px;
+    position: fixed;
+    right: var(--mf-pet-safe-right);
+    bottom: var(--mf-pet-safe-bottom);
+    z-index: 80;
+    display: grid;
+    justify-items: end;
+    gap: 10px;
+    color: #effff6;
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+    pointer-events: none;
+}
+
+.mf-pet[data-visible="false"] {
+    display: none;
+}
+
+.mf-pet__sprite-button,
+.mf-pet__panel {
+    pointer-events: auto;
+}
+
+.mf-pet__sprite-button {
+    width: var(--mf-pet-size);
+    height: var(--mf-pet-size);
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(184, 241, 209, 0.38);
+    border-radius: 999px;
+    background: rgba(4, 17, 15, 0.5);
+    box-shadow: 0 14px 32px rgba(4, 17, 15, 0.28);
+    backdrop-filter: blur(12px);
+    transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.mf-pet__sprite-button:hover {
+    transform: translateY(-3px);
+    background: rgba(12, 49, 39, 0.62);
+    box-shadow: 0 18px 42px rgba(4, 17, 15, 0.34);
+}
+
+.mf-pet__sprite {
+    width: 82%;
+    height: 82%;
+    object-fit: contain;
+    image-rendering: pixelated;
+}
+
+.mf-pet[data-state="appearing"] .mf-pet__sprite-button,
+.mf-pet[data-state="idle"] .mf-pet__sprite-button {
+    animation: mf-pet-float 2.8s ease-in-out infinite;
+}
+
+.mf-pet__panel {
+    position: relative;
+    width: min(var(--mf-pet-panel-width), calc(100vw - 32px));
+    padding: 16px;
+    border: 1px solid rgba(184, 241, 209, 0.32);
+    border-radius: 8px;
+    background:
+        linear-gradient(140deg, rgba(8, 37, 30, 0.92), rgba(23, 73, 55, 0.82)),
+        rgba(4, 17, 15, 0.88);
+    box-shadow: 0 18px 48px rgba(4, 17, 15, 0.36);
+    backdrop-filter: blur(16px);
+}
+
+.mf-pet__panel[hidden] {
+    display: none;
+}
+
+.mf-pet__close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    color: rgba(239, 255, 246, 0.82);
+    font-size: 22px;
+    line-height: 1;
+}
+
+.mf-pet__panel-text {
+    padding-right: 28px;
+}
+
+.mf-pet__title {
+    margin: 0;
+    color: #effff6;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.45;
+}
+
+.mf-pet__subtitle {
+    margin: 4px 0 0;
+    color: rgba(239, 255, 246, 0.72);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.mf-pet__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.mf-pet__action {
+    min-height: 42px;
+    padding: 9px 10px;
+    border: 1px solid rgba(184, 241, 209, 0.26);
+    border-radius: 8px;
+    background: rgba(184, 241, 209, 0.1);
+    color: #effff6;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.25;
+    text-align: center;
+}
+
+.mf-pet__action:hover {
+    background: rgba(184, 241, 209, 0.18);
+}
+
+@keyframes mf-pet-float {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-5px);
+    }
+}
+
+@media (max-width: 800px) {
+    .mf-pet {
+        --mf-pet-safe-bottom: max(14px, env(safe-area-inset-bottom, 0px));
+        --mf-pet-safe-right: max(14px, env(safe-area-inset-right, 0px));
+        --mf-pet-size: 72px;
+        --mf-pet-panel-width: 360px;
+    }
+
+    .mf-pet__panel {
+        max-height: 60dvh;
+        overflow: auto;
+        padding: 14px;
+    }
+
+    .mf-pet__actions {
+        grid-template-columns: 1fr;
+    }
+
+    .mf-pet__action {
+        min-height: 44px;
+    }
+}

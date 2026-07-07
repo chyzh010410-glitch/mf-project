@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://bdb8lxuhgwj44"]
+
+[ext_resource type="PackedScene" uid="uid://cb56kdh687hl5" path="res://Scenes/Maps/Map_Level1.tscn" id="3_yng4s"]
+
+[node name="Level1Main" type="Node2D" unique_id=1932701206]
+
+[node name="Node2D" type="Node2D" parent="." unique_id=1710729623]
+
+[node name="MapLevel1" parent="Node2D" unique_id=599244040 instance=ExtResource("3_yng4s")]

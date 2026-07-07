@@ -1,0 +1,21 @@
+@import "../core/forestPet.css";
+
+.mf-pet {
+    z-index: 70;
+}
+
+.mf-pet__sprite-button {
+    border-color: rgba(184, 241, 209, 0.46);
+}
+
+body.is-intro-active .mf-pet {
+    opacity: 0;
+    pointer-events: none;
+}
+
+@media (max-width: 800px) {
+    .mf-pet {
+        --mf-pet-safe-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+        --mf-pet-safe-right: max(12px, env(safe-area-inset-right, 0px));
+    }
+}

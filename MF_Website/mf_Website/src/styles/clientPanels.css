@@ -1,0 +1,316 @@
+.client-about-panel,
+.client-services-panel {
+    min-height: 100svh;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background-color: var(--black);
+}
+
+.client-about-panel::before,
+.client-services-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 50% 35%, rgba(24, 75, 58, 0.42), transparent 32rem),
+        linear-gradient(145deg, #061a14 0%, #0b2a22 52%, #04110f 100%);
+    opacity: 1;
+    transform: scale(1.04);
+}
+
+.client-services-panel::before {
+    background:
+        linear-gradient(90deg, rgba(4, 17, 15, 0.9), rgba(22, 51, 41, 0.68)),
+        url("/assets/forest-hero.jpg") center / cover;
+    opacity: 0.5;
+}
+
+.client-services-panel {
+    padding: 5rem 2rem;
+}
+
+.client-about-panel h1,
+.client-services-header h1 {
+    position: relative;
+    z-index: 2;
+    width: min(13ch, calc(100vw - 3rem));
+    text-align: center;
+    font-family: var(--font-ui);
+    font-size: clamp(4rem, 13vw, 13rem);
+    font-weight: 760;
+    line-height: 0.9;
+    letter-spacing: 0.04em;
+    color: rgba(234, 255, 244, 0.76);
+}
+
+.client-services-header {
+    display: none;
+}
+
+.client-panel-cards {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 20rem));
+    align-items: start;
+    justify-content: center;
+    gap: 4rem;
+    width: min(86rem, calc(100vw - 4rem));
+    margin: 0 auto;
+    padding-top: 19svh;
+    pointer-events: none;
+    perspective: 1200px;
+}
+
+.client-panel-card {
+    position: relative;
+    width: 100%;
+    max-width: 20rem;
+    aspect-ratio: 5 / 7;
+    opacity: 0;
+    transform-style: preserve-3d;
+    will-change: transform, opacity;
+}
+
+.client-panel-card-wrapper {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    animation: clientPanelFloat 2.25s ease-in-out infinite;
+    animation-play-state: paused;
+}
+
+.client-services-panel.is-floating .client-panel-card-wrapper {
+    animation-play-state: running;
+}
+
+#client-panel-card-2 .client-panel-card-wrapper {
+    animation-delay: 0.2s;
+}
+
+#client-panel-card-3 .client-panel-card-wrapper {
+    animation-delay: 0.4s;
+}
+
+@keyframes clientPanelFloat {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-0.65rem);
+    }
+}
+
+.client-panel-card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    will-change: transform;
+}
+
+.client-panel-card-front,
+.client-panel-card-back {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    border-radius: 1.1rem;
+    overflow: hidden;
+    backface-visibility: hidden;
+    box-shadow: 0 2rem 4rem rgba(0, 0, 0, 0.24);
+}
+
+.client-panel-card-front {
+    padding: 1.2rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background-color: var(--card-1);
+    color: var(--black);
+}
+
+#client-panel-card-1 .client-panel-card-front {
+    background-color: var(--card-1);
+    color: var(--black);
+}
+
+#client-panel-card-2 .client-panel-card-front {
+    background-color: var(--card-2);
+    color: var(--light);
+}
+
+#client-panel-card-3 .client-panel-card-front {
+    background-color: var(--card-3);
+    color: var(--light);
+}
+
+.client-panel-card-front span,
+.client-panel-card-back span {
+    position: absolute;
+    top: 1.2rem;
+    left: 1.2rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    opacity: 0.5;
+}
+
+.client-panel-card-front p {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: clamp(1.15rem, 1.75vw, 1.65rem);
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0.05em;
+}
+
+.client-panel-card-back {
+    padding: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 1rem;
+    transform: rotateY(180deg);
+    background-color: rgba(184, 241, 209, 0.94);
+    color: var(--black);
+}
+
+#client-panel-card-2 .client-panel-card-back {
+    background-color: rgba(72, 117, 88, 0.96);
+    color: var(--light);
+}
+
+#client-panel-card-3 .client-panel-card-back {
+    background-color: rgba(222, 244, 200, 0.96);
+    color: var(--black);
+}
+
+.client-panel-card-back p {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: clamp(1.15rem, 1.75vw, 1.65rem);
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0.05em;
+}
+
+body.lang-en .client-about-panel h1,
+body.lang-en .client-services-header h1 {
+    width: min(16ch, calc(100vw - 3rem));
+    text-transform: uppercase;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: clamp(4rem, 14vw, 14rem);
+    font-weight: 800;
+    line-height: 0.78;
+    letter-spacing: 0;
+}
+
+body.lang-en .client-panel-card-front span,
+body.lang-en .client-panel-card-back span {
+    font-family: "DM Mono", monospace;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+body.lang-en .client-panel-card-front p,
+body.lang-en .client-panel-card-back p {
+    font-family: "DM Sans", sans-serif;
+    font-weight: 600;
+    letter-spacing: 0;
+}
+
+@media (max-width: 1000px) {
+    .client-panel-cards {
+        width: min(34rem, calc(100vw - 2rem));
+        grid-template-columns: repeat(3, minmax(0, 10rem));
+        padding-top: 21svh;
+        gap: 1rem;
+    }
+
+    .client-panel-card {
+        max-width: 10rem;
+    }
+
+    .client-panel-card-front,
+    .client-panel-card-back {
+        padding: 0.9rem;
+    }
+
+    .client-panel-card-back p {
+        font-size: clamp(0.95rem, 3.3vw, 1.25rem);
+    }
+
+    .client-panel-card-front p {
+        font-size: clamp(0.95rem, 3.3vw, 1.25rem);
+    }
+}
+
+@media (max-width: 700px) {
+    .client-about-panel::before {
+        background:
+            radial-gradient(circle at 50% 35%, rgba(24, 75, 58, 0.42), transparent 18rem),
+            linear-gradient(145deg, #061a14 0%, #0b2a22 52%, #04110f 100%);
+    }
+
+    .client-services-panel::before {
+        background:
+            linear-gradient(90deg, rgba(4, 17, 15, 0.9), rgba(22, 51, 41, 0.68)),
+            url("/assets/forest-hero-mobile.jpg") center / cover;
+    }
+
+    .client-about-panel h1,
+    .client-services-header h1 {
+        width: min(10ch, calc(100vw - 2rem));
+        font-size: clamp(3.25rem, 21vw, 7rem);
+        line-height: 0.96;
+    }
+
+    body.lang-en .client-about-panel h1,
+    body.lang-en .client-services-header h1 {
+        width: min(12ch, calc(100vw - 2rem));
+        font-size: clamp(3.25rem, 22vw, 7.5rem);
+        line-height: 0.86;
+    }
+
+    .client-panel-cards {
+        width: min(22rem, calc(100vw - 1.5rem));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        padding-top: 24svh;
+        gap: 0.55rem;
+    }
+
+    .client-panel-card {
+        max-width: none;
+    }
+
+    .client-panel-card-front,
+    .client-panel-card-back {
+        border-radius: 0.75rem;
+        box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.18);
+    }
+
+    .client-panel-card-front span,
+    .client-panel-card-back span {
+        font-size: 0.65rem;
+    }
+
+    .client-panel-card-front,
+    .client-panel-card-back {
+        padding: 0.7rem;
+    }
+
+    .client-panel-card-front p,
+    .client-panel-card-back p {
+        font-size: clamp(0.8rem, 3.7vw, 1rem);
+        line-height: 1.18;
+    }
+}
