@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MF_Pet Settings</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --bg: #f5f5f7;
+      --panel-bg: #ffffff;
+      --sidebar-bg: #ececef;
+      --sidebar-hover: rgba(0, 0, 0, 0.05);
+      --sidebar-active: #ffffff;
+      --text-primary: #18181b;
+      --text-secondary: #6b6b70;
+      --text-tertiary: #9b9ba0;
+      --border: rgba(0, 0, 0, 0.08);
+      --row-border: rgba(0, 0, 0, 0.06);
+      --accent: #d97757;
+      --accent-hover: #c4684a;
+      --switch-off: #d4d4d8;
+      --switch-on: #d97757;
+    }
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      user-select: none;
+    }
+    .app {
+      display: flex;
+      width: 100%;
+      height: 100%;
+    }
+    .sidebar {
+      width: 200px;
+      flex: 0 0 200px;
+      padding: 16px 8px;
+      overflow-y: auto;
+      border-right: 1px solid var(--border);
+      background: var(--sidebar-bg);
+    }
+    .sidebar-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 38px;
+      margin: 2px 0;
+      padding: 8px 12px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font: inherit;
+      font-weight: 500;
+      text-align: left;
+      width: 100%;
+    }
+    .sidebar-item:hover { background: var(--sidebar-hover); }
+    .sidebar-item.active {
+      background: var(--sidebar-active);
+      color: var(--text-primary);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    }
+    .sidebar-item-icon {
+      display: grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      flex: 0 0 18px;
+      color: currentColor;
+    }
+    .doctor-indicator {
+      border: 1px solid var(--border);
+      background: var(--panel-bg);
+      margin-bottom: 10px;
+    }
+    .doctor-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #2f9e44;
+      flex: 0 0 9px;
+    }
+    .doctor-status {
+      margin-left: auto;
+      color: var(--text-tertiary);
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .content {
+      flex: 1;
+      min-width: 0;
+      overflow-y: auto;
+      padding: 28px 36px;
+      background: var(--panel-bg);
+    }
+    .content h1 {
+      margin: 0 0 4px;
+      color: var(--text-primary);
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .subtitle {
+      margin: 0 0 24px;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+    .section {
+      margin-bottom: 28px;
+    }
+    .section-title {
+      margin: 0 0 8px;
+      padding: 0 4px;
+      color: var(--text-tertiary);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .section-rows {
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 58px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--row-border);
+    }
+    .row:last-child { border-bottom: 0; }
+    .row-main {
+      min-width: 0;
+    }
+    .row-title {
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .row-desc {
+      margin-top: 3px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .pill {
+      display: inline-grid;
+      place-items: center;
+      min-width: 56px;
+      height: 24px;
+      padding: 0 9px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.055);
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .switch {
+      width: 42px;
+      height: 24px;
+      border: 0;
+      border-radius: 999px;
+      background: var(--switch-off);
+      cursor: pointer;
+      padding: 2px;
+      flex: 0 0 42px;
+    }
+    .switch::before {
+      content: "";
+      display: block;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      transition: transform 0.15s ease;
+    }
+    .switch[data-on="true"] {
+      background: var(--switch-on);
+    }
+    .switch[data-on="true"]::before {
+      transform: translateX(18px);
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .btn {
+      min-height: 30px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: var(--panel-bg);
+      color: var(--text-primary);
+      cursor: pointer;
+      font: inherit;
+      font-weight: 600;
+      padding: 0 12px;
+    }
+    .btn:hover {
+      border-color: rgba(217, 119, 87, 0.35);
+      color: var(--accent-hover);
+    }
+    .tab { display: none; }
+    .tab.active { display: block; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <nav class="sidebar">
+      <button class="sidebar-item doctor-indicator active" data-tab="general">
+        <span class="doctor-dot"></span>
+        <span>Doctor</span>
+        <span class="doctor-status" id="doctorStatus">正常</span>
+      </button>
+      <button class="sidebar-item active" data-tab="general"><span class="sidebar-item-icon">⚙</span><span>通用</span></button>
+      <button class="sidebar-item" data-tab="agents"><span class="sidebar-item-icon">⚡</span><span>Agent 管理</span></button>
+      <button class="sidebar-item" data-tab="theme"><span class="sidebar-item-icon">◌</span><span>主题</span></button>
+      <button class="sidebar-item" data-tab="animation"><span class="sidebar-item-icon">▣</span><span>动画 / 音效</span></button>
+      <button class="sidebar-item" data-tab="shortcuts"><span class="sidebar-item-icon">⌨</span><span>快捷键</span></button>
+      <button class="sidebar-item" data-tab="approval"><span class="sidebar-item-icon">⌁</span><span>远程审批</span></button>
+      <button class="sidebar-item" data-tab="ssh"><span class="sidebar-item-icon">⌘</span><span>远程 SSH</span></button>
+      <button class="sidebar-item" data-tab="mobile"><span class="sidebar-item-icon">▯</span><span>移动端</span></button>
+      <button class="sidebar-item" data-tab="about"><span class="sidebar-item-icon">ⓘ</span><span>关于</span></button>
+    </nav>
+
+    <main class="content">
+      <section class="tab active" id="tab-general">
+        <h1>设置</h1>
+        <p class="subtitle">配置苗丰精灵在桌面上的行为。</p>
+
+        <div class="section">
+          <div class="section-title">外观</div>
+          <div class="section-rows">
+            <div class="row">
+              <div class="row-main"><div class="row-title">语言</div><div class="row-desc">菜单和气泡的界面语言。</div></div>
+              <span class="pill">中文</span>
+            </div>
+            <div class="row">
+              <div class="row-main"><div class="row-title">大小</div><div class="row-desc">当前使用 clawd 分层 SVG 桌面尺寸。</div></div>
+              <span class="pill" id="petSize">-</span>
+            </div>
+            <div class="row">
+              <div class="row-main"><div class="row-title">文字大小</div><div class="row-desc">聊天、会话 HUD、Dashboard 使用紧凑桌面字号。</div></div>
+              <span class="pill">默认</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">会话管理</div>
+          <div class="section-rows">
+            <div class="row">
+              <div class="row-main"><div class="row-title">会话 HUD</div><div class="row-desc">在桌宠下方显示活跃会话状态。</div></div>
+              <button class="switch" data-command="setSessionHudPinned" aria-label="会话 HUD"></button>
+            </div>
+            <div class="row">
+              <div class="row-main"><div class="row-title">会话清理</div><div class="row-desc">通过 Dashboard 查看和手动结束会话。</div></div>
+              <button class="btn" id="openDashboard">打开 Dashboard</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">行为</div>
+          <div class="section-rows">
+            <div class="row">
+              <div class="row-main"><div class="row-title">极简模式</div><div class="row-desc">把精灵贴到屏幕边缘，只露出探头。</div></div>
+              <div class="actions">
+                <button class="btn" data-command="enterMini" data-edge="left">贴左</button>
+                <button class="btn" data-command="enterMini" data-edge="right">贴右</button>
+                <button class="btn" data-command="exitMini">退出</button>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-main"><div class="row-title">休眠（免打扰）</div><div class="row-desc">收起气泡和面板，让精灵保持安静。</div></div>
+              <button class="switch" data-command="setDoNotDisturb" aria-label="休眠"></button>
+            </div>
+            <div class="row">
+              <div class="row-main"><div class="row-title">自动放行所有请求</div><div class="row-desc">当前项目未启用高风险工具自动审批。</div></div>
+              <span class="pill">关闭</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab" id="tab-agents">
+        <h1>Agent 管理</h1>
+        <p class="subtitle">MF_Pet 通过 MF_AgentService 与业务工具和数据沉淀连接。</p>
+        <div class="section"><div class="section-title">当前 Agent</div><div class="section-rows">
+          <div class="row"><div class="row-main"><div class="row-title">MF_AgentService</div><div class="row-desc">规则路由 + 工具调用 + 轻量 RAG，默认不调用真实 LLM。</div></div><span class="pill">启用</span></div>
+          <div class="row"><div class="row-main"><div class="row-title">聊天入口</div><div class="row-desc">打开 Pet 聊天面板，向 8092 Agent 接口发送问题。</div></div><button class="btn" data-command="openChat">打开聊天</button></div>
+        </div></div>
+      </section>
+
+      <section class="tab" id="tab-theme">
+        <h1>主题</h1>
+        <p class="subtitle">当前桌面体验复用 clawd-on-desk 的分层 SVG；后续替换为苗丰主题即可。</p>
+        <div class="section"><div class="section-title">当前主题</div><div class="section-rows">
+          <div class="row"><div class="row-main"><div class="row-title" id="themeName">Clawd Dev Placeholder</div><div class="row-desc" id="themeAssets">clawd-on-desk/assets/svg</div></div><span class="pill">开发占位</span></div>
+        </div></div>
+      </section>
+
+      <section class="tab" id="tab-animation">
+        <h1>动画 / 音效</h1>
+        <p class="subtitle">控制气泡、通知、静音和低功耗行为。</p>
+        <div class="section"><div class="section-title">开关</div><div class="section-rows">
+          <div class="row"><div class="row-main"><div class="row-title">低功耗</div><div class="row-desc">减少空闲动画和视觉更新。</div></div><button class="switch" data-command="setLowPower" aria-label="低功耗"></button></div>
+          <div class="row"><div class="row-main"><div class="row-title">静音</div><div class="row-desc">关闭精灵提示音。</div></div><button class="switch" data-command="setMuted" aria-label="静音"></button></div>
+        </div></div>
+      </section>
+
+      <section class="tab" id="tab-shortcuts">
+        <h1>快捷键</h1>
+        <p class="subtitle">当前保留为桌面壳能力位，后续接全局快捷键。</p>
+        <div class="section"><div class="section-rows"><div class="row"><div class="row-main"><div class="row-title">重置位置</div><div class="row-desc">恢复 Pet 在当前透明窗口内的位置。</div></div><button class="btn" data-command="resetPosition">重置</button></div></div></div>
+      </section>
+
+      <section class="tab" id="tab-approval">
+        <h1>远程审批</h1>
+        <p class="subtitle">当前 MF_Pet 仅观察权限事件，不接管高风险审批。</p>
+        <div class="section"><div class="section-rows">
+          <div class="row"><div class="row-main"><div class="row-title">权限气泡</div><div class="row-desc">允许工具调用确认提示显示在精灵旁。</div></div><button class="switch" data-command="setPermissionBubblesEnabled" aria-label="权限气泡"></button></div>
+          <div class="row"><div class="row-main"><div class="row-title">隐藏所有气泡</div><div class="row-desc">临时关闭通知和权限提示。</div></div><button class="switch" data-command="setHideBubbles" aria-label="隐藏气泡"></button></div>
+        </div></div>
+      </section>
+
+      <section class="tab" id="tab-ssh"><h1>远程 SSH</h1><p class="subtitle">后续接入远程部署和观察能力。</p><div class="section"><div class="section-rows"><div class="row"><div class="row-main"><div class="row-title">状态</div><div class="row-desc">当前未启用远程 SSH。</div></div><span class="pill">未启用</span></div></div></div></section>
+      <section class="tab" id="tab-mobile"><h1>移动端</h1><p class="subtitle">后续接入移动端查看和审批。</p><div class="section"><div class="section-rows"><div class="row"><div class="row-main"><div class="row-title">状态</div><div class="row-desc">当前未启用移动端。</div></div><span class="pill">未启用</span></div></div></div></section>
+      <section class="tab" id="tab-about"><h1>关于</h1><p class="subtitle">MF_Pet 桌面精灵。</p><div class="section"><div class="section-rows"><div class="row"><div class="row-main"><div class="row-title">定位</div><div class="row-desc">苗丰精灵前端交互层，外观和行为向 clawd-on-desk 靠齐。</div></div><span class="pill">V1</span></div></div></div></section>
+    </main>
+  </div>
+
+  <script>
+    let snapshot = {};
+    const switchMap = {
+      setDoNotDisturb: "doNotDisturb",
+      setLowPower: "lowPower",
+      setMuted: "muted",
+      setPermissionBubblesEnabled: "permissionBubblesEnabled",
+      setHideBubbles: "hideBubbles",
+      setSessionHudPinned: "sessionHudPinned",
+    };
+
+    function command(name, payload) {
+      window.mfPetShell.command(name, payload || {});
+    }
+
+    function setActiveTab(tab) {
+      document.querySelectorAll(".sidebar-item[data-tab]").forEach((item) => {
+        item.classList.toggle("active", item.dataset.tab === tab && !item.classList.contains("doctor-indicator"));
+      });
+      document.querySelectorAll(".tab").forEach((panel) => {
+        panel.classList.toggle("active", panel.id === `tab-${tab}`);
+      });
+    }
+
+    function render(next) {
+      snapshot = next || {};
+      document.getElementById("doctorStatus").textContent = snapshot.state ? "正常" : "未连接";
+      document.getElementById("petSize").textContent = snapshot.theme?.ui?.spriteSize ? `${snapshot.theme.ui.spriteSize}px` : "-";
+      document.getElementById("themeName").textContent = snapshot.theme?.name || "Clawd Dev Placeholder";
+      document.getElementById("themeAssets").textContent = snapshot.theme?.assetBaseUrl || "clawd-on-desk/assets/svg";
+      Object.entries(switchMap).forEach(([commandName, key]) => {
+        document.querySelectorAll(`[data-command="${commandName}"]`).forEach((button) => {
+          button.dataset.on = String(!!snapshot[key]);
+        });
+      });
+    }
+
+    document.querySelectorAll(".sidebar-item[data-tab]").forEach((button) => {
+      button.addEventListener("click", () => setActiveTab(button.dataset.tab));
+    });
+    document.querySelectorAll(".switch").forEach((button) => {
+      button.addEventListener("click", () => {
+        const key = switchMap[button.dataset.command];
+        command(button.dataset.command, { enabled: !snapshot?.[key] });
+      });
+    });
+    document.querySelectorAll("[data-command]:not(.switch)").forEach((button) => {
+      button.addEventListener("click", () => command(button.dataset.command, { edge: button.dataset.edge }));
+    });
+    document.getElementById("openDashboard").addEventListener("click", () => window.mfPetShell.openDashboard());
+
+    window.mfPetShell.onSnapshot(render);
+    window.mfPetShell.getSnapshot().then(render);
+  </script>
+</body>
+</html>

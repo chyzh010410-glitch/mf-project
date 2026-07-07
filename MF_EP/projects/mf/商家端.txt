@@ -1,0 +1,296 @@
+当前项目路径：
+F:\20260518-xiangmu\Workspace\projects\mf
+
+请按 Workspace 规则工作。
+开始前只读取 README.md、index.md、preferences.md 和当前项目的 项目总结.md。
+如有必要，再按需读取相关日志或 SOP。
+不要一开始全仓库乱扫，先按任务相关文件逐步读取。
+
+任务：实现商家客户端 V1。
+
+背景：
+当前 mf 项目是苗木/肥料电商平台，已有：
+1. C 端消费者端：mf-frontend-client
+2. 管理端：mf-frontend
+3. 后端：mf-fertilizer
+
+当前架构更接近“消费者 + 管理员/运营”的平台自营模型，还没有真正的商家角色。
+现在需要新增“商家”角色和商家端，采用“平台审核商家”模式：
+- 商家注册/入驻后状态为 pending
+- 管理员审核通过后状态为 approved
+- 只有 approved 商家可以登录商家端
+- 商家只能管理自己的商品、查看自己的订单商品、发货自己的订单
+
+请先理解现有这些后端文件：
+- mf-fertilizer/fertilizer-common/src/main/java/com/mf/fertilizer/constant/RoleEnum.java
+- mf-fertilizer/fertilizer-common/src/main/java/com/mf/fertilizer/constant/RedisKey.java
+- mf-fertilizer/fertilizer-common/src/main/java/com/mf/fertilizer/context/UserContext.java
+- mf-fertilizer/fertilizer-common/src/main/java/com/mf/fertilizer/util/JwtUtil.java
+- mf-fertilizer/fertilizer-api/src/main/java/com/mf/fertilizer/config/JwtInterceptorConfig.java
+- mf-fertilizer/fertilizer-core/src/main/java/com/mf/fertilizer/product/entity/Product.java
+- mf-fertilizer/fertilizer-core/src/main/java/com/mf/fertilizer/order/entity/OrderEntity.java
+- mf-fertilizer/fertilizer-core/src/main/java/com/mf/fertilizer/order/entity/OrderItem.java
+- mf-fertilizer/fertilizer-core/src/main/java/com/mf/fertilizer/product/service/impl/ProductAdminApplicationServiceImpl.java
+- mf-fertilizer/fertilizer-core/src/main/java/com/mf/fertilizer/order/service/impl/OrderApplicationServiceImpl.java
+- mf-fertilizer/fertilizer-api/src/main/java/com/mf/fertilizer/order/controller/client/ClientOrderController.java
+- mf-fertilizer/fertilizer-api/src/main/java/com/mf/fertilizer/user/controller/admin/LoginController.java
+
+目标：
+实现商家客户端 V1 的完整基础闭环，包括：
+1. 商家身份
+2. 商家注册/登录
+3. 管理员审核商家
+4. 商品归属商家
+5. 订单项归属商家
+6. 商家端商品管理
+7. 商家端订单查看和发货
+8. 新增独立商家前端工程或目录 mf-frontend-merchant
+
+一、后端角色与鉴权
+
+请在 RoleEnum 增加商家相关身份，例如：
+- MERCHANT = "merchant"
+
+要求：
+- JWT 仍使用 userType 区分身份
+- 商家登录成功后 userType=merchant
+- /merchant/** 默认要求商家身份
+- /merchant/auth/register 和 /merchant/auth/login 放行
+- 商家 token 使用独立 RedisKey，例如 merchantToken(token)
+- 不要复用 clientToken，也不要复用 admin loginToken
+
+JwtInterceptorConfig 需要支持：
+- /client/** 仍是消费者
+- /admin/** 仍是管理员
+- /merchant/** 是商家
+
+UserContext 可增加：
+- isMerchantUser()
+
+二、商家领域
+
+新增商家实体和相关 mapper/service/application service。
+
+建议表名：
+merchant
+
+字段至少包括：
+- id
+- username
+- password
+- shop_name
+- contact_name
+- phone
+- status
+- audit_remark
+- audit_time
+- last_login_time
+- create_time
+- update_time
+- deleted
+
+状态：
+- pending：待审核
+- approved：已通过
+- rejected：已拒绝
+- disabled：已禁用
+
+要求：
+- 商家注册默认 pending
+- 商家登录只允许 approved
+- 密码处理方式尽量沿用现有 user/sys_user 的方式，不要引入新的复杂加密方案
+- 注册时校验 username、phone 不重复
+
+三、管理端商家审核
+
+新增管理端接口：
+- GET /admin/merchants：分页列表，可按状态/关键词筛选
+- GET /admin/merchants/{id}：详情
+- POST /admin/merchants/{id}/approve：审核通过
+- POST /admin/merchants/{id}/reject：审核拒绝，支持审核备注
+- POST /admin/merchants/{id}/disable：禁用商家
+
+管理端前端 mf-frontend 新增菜单/页面：
+- 商家管理
+- 支持查看商家列表
+- 支持通过/拒绝/禁用
+- 显示状态中文标签
+
+四、商品归属商家
+
+给 product 增加 merchant_id 字段。
+
+要求：
+- 商家新增商品时，merchant_id 自动写当前商家 ID
+- 商家编辑/删除商品时，必须校验 product.merchant_id == 当前商家 ID
+- 商家商品列表只能看到自己的商品
+- 管理端商品管理仍可查看全部商品
+- C 端商品列表和详情继续正常展示，不需要强制显示商家信息，除非实现成本很低
+
+如果现有 schema SQL 在 db 目录中，请补 migration/seed SQL。
+如果没有统一 migration 机制，请新增一个清晰命名的 SQL 文件，例如：
+mf-fertilizer/fertilizer-api/src/main/resources/db/merchant-v1.sql
+
+五、订单项归属商家
+
+给 order_item 增加 merchant_id 字段。
+
+要求：
+- 消费者下单创建订单项时，根据 product.merchant_id 写入 order_item.merchant_id
+- 如果历史商品 merchant_id 为空，可以允许平台自营商品 merchant_id 为空
+- 商家订单列表基于 order_item.merchant_id = 当前商家 ID 查询
+- 商家不能看到不属于自己的 order_item
+
+V1 不做复杂拆单：
+- order 主表仍保持一个订单号
+- 多商家拆单、多包裹、多结算留到以后
+- 商家端订单详情只展示属于自己的商品项
+- 商家发货时只允许处理自己相关的订单项
+- 如果当前订单状态模型不支持“订单项级发货”，V1 可以在商家发货时更新主订单状态为已发货，但必须在代码注释或文档中说明这是 V1 简化策略
+
+六、商家端后端接口
+
+新增 /merchant/** 接口：
+
+认证：
+- POST /merchant/auth/register
+- POST /merchant/auth/login
+- POST /merchant/auth/logout
+
+资料：
+- GET /merchant/profile
+- PUT /merchant/profile
+
+商品：
+- GET /merchant/products
+- POST /merchant/products
+- GET /merchant/products/{id}
+- PUT /merchant/products/{id}
+- DELETE /merchant/products/{id}
+
+订单：
+- GET /merchant/orders
+- GET /merchant/orders/{id}
+- POST /merchant/orders/{id}/ship
+
+注意：
+- 商品 DTO 可以复用管理端 ProductSaveDTO，但不要让商家传 merchant_id
+- merchant_id 必须以后端 UserContext 当前商家 ID 为准
+- 所有商家接口必须做归属校验
+
+七、商家前端 mf-frontend-merchant
+
+新增独立商家前端工程或目录，建议：
+mf-frontend-merchant
+
+可以基于 mf-frontend 或 mf-frontend-client 的 Vite/Vue/Element Plus 结构快速搭建。
+
+页面至少包括：
+1. 登录页
+2. 注册/入驻申请页
+3. 商家布局页
+4. 首页概览
+5. 商品管理
+6. 订单管理
+7. 店铺资料
+
+功能要求：
+- 登录后保存 merchantToken
+- 请求头携带 Bearer token
+- 未登录跳转登录页
+- pending/rejected 商家登录失败时显示后端提示
+- 商品管理可新增、编辑、删除自己的商品
+- 订单管理可查看自己的订单项并发货
+- 不要把管理员端 token 和消费者端 token 混用
+
+八、前端管理端 mf-frontend
+
+新增商家管理页面和路由。
+
+要求：
+- 菜单中能进入商家管理
+- 商家列表支持状态筛选
+- 支持审核通过、拒绝、禁用
+- 调用 /admin/merchants/** 接口
+
+九、安全与边界
+
+必须保证：
+- 消费者 token 不能访问 /merchant/**
+- 商家 token 不能访问 /admin/**
+- 商家 A 不能操作商家 B 的商品
+- 商家 A 不能查看商家 B 的订单项
+- 商家不能自定义 merchant_id
+- 管理员接口保持原权限体系
+
+十、验证
+
+后端必须验证：
+cd mf-fertilizer
+mvn -pl fertilizer-api -am test -DskipTests
+
+前端必须验证：
+cd mf-frontend
+npm run build
+
+cd mf-frontend-client
+npm run build
+
+cd mf-frontend-merchant
+npm run build
+
+如果新增 mf-frontend-merchant 后缺少依赖，请按现有前端项目依赖风格安装/配置，不要引入不必要的大型框架。
+
+十一、手动验收场景
+
+请按以下流程验证或说明如何验证：
+
+1. 商家注册
+- 注册后状态为 pending
+- 不能登录商家端
+
+2. 管理员审核
+- 管理端商家管理能看到 pending 商家
+- 审核通过后状态为 approved
+
+3. 商家登录
+- approved 商家可以登录
+- 获取 merchant token
+- 能进入商家端
+
+4. 商品管理
+- 商家新增商品
+- 数据库 product.merchant_id 是当前商家 ID
+- 商家只能看到自己的商品
+
+5. C 端下单
+- 消费者购买该商家的商品
+- order_item.merchant_id 正确写入
+
+6. 商家订单
+- 商家端订单列表能看到包含自己商品项的订单
+- 订单详情只展示自己的商品项
+- 商家可以发货
+
+7. 权限隔离
+- 用消费者 token 请求 /merchant/products 返回 403 或 401
+- 用商家 token 请求 /admin/merchants 返回 403 或 401
+- 商家 A 请求商家 B 商品详情/编辑接口失败
+
+十二、注意事项
+
+- 不要实现真实商家结算、佣金、提现、售后仲裁、店铺装修。
+- 不要做复杂多商家拆单。
+- 不要重构整个订单系统。
+- 不要删除现有优化成果。
+- 工作区可能已有很多改动，不要 revert 不是你做的改动。
+- 代码风格尽量贴合当前项目已有 domain/application/service/controller 分层。
+- 如果发现历史代码或数据库结构不一致，请先做最小兼容方案，不要大范围重写。
+
+完成后请输出：
+1. 改动文件列表
+2. 核心数据流说明
+3. 新增接口说明
+4. 数据库变更说明
+5. 验证命令和结果
+6. 已知限制

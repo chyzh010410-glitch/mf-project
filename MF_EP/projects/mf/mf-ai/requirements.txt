@@ -1,0 +1,9 @@
+langchain
+langchain-openai
+langchain-huggingface
+langchain-chroma
+chromadb
+sentence-transformers
+pymysql
+pydantic>=2.0
+python-dotenv

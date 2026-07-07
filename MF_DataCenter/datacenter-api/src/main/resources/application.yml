@@ -1,0 +1,23 @@
+server:
+  port: 8091
+
+spring:
+  application:
+    name: mf-datacenter-api
+
+datacenter:
+  internal-token: change-me
+  storage:
+    ai-data-file: data/ai-store.json
+  scheduler:
+    enabled: false
+  mf-ep:
+    datasource:
+      enabled: false
+      url:
+      username:
+      password:
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

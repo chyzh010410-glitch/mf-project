@@ -1,0 +1,103 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #app {
+  height: 100%;
+  font-family: Inter, 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif;
+  color: var(--color-text);
+  background: linear-gradient(180deg, #f7fbf6 0%, var(--color-bg) 42%, #edf5ed 100%);
+}
+
+a { text-decoration: none; color: inherit; }
+
+.page-container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 24px 20px 32px;
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 20px;
+}
+
+.el-button--primary {
+  --el-button-bg-color: var(--color-primary);
+  --el-button-border-color: var(--color-primary);
+  --el-button-hover-bg-color: var(--color-primary-light);
+  --el-button-hover-border-color: var(--color-primary-light);
+}
+
+.el-button {
+  font-weight: 600;
+}
+
+.el-button:not(.is-circle) {
+  border-radius: var(--radius-control);
+}
+
+.el-card {
+  border-color: var(--color-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+}
+
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner {
+  border-radius: var(--radius-control);
+  box-shadow: 0 0 0 1px var(--color-border) inset;
+}
+
+.el-input__wrapper:hover,
+.el-select__wrapper:hover,
+.el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px var(--color-border-strong) inset;
+}
+
+.el-table {
+  border-radius: var(--radius-panel);
+  color: var(--color-text);
+  --el-table-border-color: var(--color-border);
+  --el-table-header-bg-color: var(--color-surface-soft);
+  --el-table-header-text-color: var(--color-text-secondary);
+  --el-table-row-hover-bg-color: #f2f8f1;
+}
+
+.el-table th.el-table__cell {
+  font-weight: 700;
+}
+
+.el-dialog {
+  border-radius: var(--radius-panel);
+}
+
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--color-primary-dark);
+  font-weight: 800;
+}
+
+.brand-logo-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border: 1px solid rgba(47, 125, 77, 0.16);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(47, 125, 77, 0.1);
+}
+
+.brand-logo {
+  display: block;
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}

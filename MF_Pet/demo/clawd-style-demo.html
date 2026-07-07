@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MF_Pet clawd-style demo</title>
+  <link rel="stylesheet" href="../src/forestPet.css">
+  <style>
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(4, 17, 15, 0.06)),
+        radial-gradient(circle at 18% 18%, rgba(151, 198, 229, 0.72), transparent 34%),
+        radial-gradient(circle at 86% 20%, rgba(185, 226, 198, 0.42), transparent 28%),
+        linear-gradient(155deg, #b7d5e7 0%, #7aa5ba 42%, #d8dfd9 100%);
+      background-attachment: fixed;
+      color: #effff6;
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+      overflow: hidden;
+    }
+
+    main {
+      position: fixed;
+      left: 24px;
+      top: 24px;
+      width: min(520px, calc(100vw - 48px));
+      max-height: calc(100vh - 48px);
+      overflow: auto;
+      padding: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 14px;
+      background: rgba(5, 18, 22, 0.38);
+      box-shadow: 0 18px 46px rgba(20, 42, 49, 0.22);
+      backdrop-filter: blur(18px);
+      opacity: 0.42;
+      transform: scale(0.96);
+      transform-origin: left top;
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+
+    main:hover,
+    main:focus-within {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: 18px;
+    }
+
+    p {
+      max-width: 720px;
+      line-height: 1.75;
+      color: rgba(239, 255, 246, 0.78);
+      font-size: 13px;
+    }
+
+    .demo-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 22px;
+    }
+
+    .demo-actions button {
+      min-height: 40px;
+      padding: 0 14px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.12);
+      color: #effff6;
+      font: inherit;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>MF_Pet clawd-style runtime demo</h1>
+    <p>
+      这个 demo 使用本地 clawd-on-desk 的 clawd GIF 作为开发占位主题，用来验证 MF_Pet 的主题校验、
+      会话事件状态机、工作动画分层、权限确认、任务 HUD、mini 模式、点击反应和 MF 风格流式聊天气泡。
+      正式交付时切回苗丰精灵主题，不把 clawd 素材作为 MF 正式资源发布。
+    </p>
+    <div class="demo-actions">
+      <button data-event="summon">唤出</button>
+      <button data-agent-event="UserPromptSubmit" data-session="main">思考</button>
+      <button data-agent-event="PreToolUse" data-session="main">工具调用</button>
+      <button id="multi-session">多会话工作</button>
+      <button id="context-usage">上下文用量</button>
+      <button id="dashboard">任务面板</button>
+      <button id="business-bridge">业务事件桥</button>
+      <button data-agent-event="SubagentStart" data-session="sub-1">子任务</button>
+      <button data-agent-event="PermissionRequest" data-session="main">权限确认</button>
+      <button id="permission-auto-close">权限自动隐藏</button>
+      <button id="notice">MF 通知气泡</button>
+      <button id="notice-policy">通知策略</button>
+      <button data-agent-event="PreCompact" data-session="main">整理上下文</button>
+      <button data-agent-event="WorktreeCreate" data-session="main">搬运工作区</button>
+      <button data-agent-event="Stop" data-session="main">完成</button>
+      <button data-agent-event="PostToolUseFailure" data-session="main">错误</button>
+      <button id="end-sessions">结束会话</button>
+      <button id="open-chat">打开聊天</button>
+      <button id="mini-left">左侧 Mini</button>
+      <button id="mini">右侧 Mini</button>
+      <button id="json-theme">JSON 主题解析</button>
+      <button id="load-mf-json">加载 MF 主题 JSON</button>
+      <button id="switch-mf">切换 MF 主题</button>
+      <button id="switch-clawd">切回 clawd</button>
+      <button id="asset-health">素材健康检查</button>
+      <button id="dnd">睡眠勿扰</button>
+      <button id="permission-bubbles">权限气泡</button>
+      <button id="power">低功耗</button>
+      <button id="mute">静音</button>
+      <button id="desktop-shell">Desktop Shell</button>
+    </div>
+  </main>
+
+  <script type="module">
+    import {
+      initForestPet,
+      clawdDevTheme,
+      exportPetThemeJson,
+      loadPetThemeFromUrl,
+      parsePetThemeJson,
+      checkPetThemeAssets,
+    } from "../src/forestPet.js";
+
+    const pet = initForestPet({
+      theme: clawdDevTheme,
+      assetsBaseUrl: "../clawd-on-desk/assets/gif",
+      shellMode: "desktop",
+      shellCapabilities: {
+        transparentWindow: true,
+        alwaysOnTop: true,
+        tray: false,
+        nativeFocus: false,
+        multiScreen: false,
+      },
+      initiallyVisible: true,
+      initiallyExpanded: false,
+      restore: false,
+      onChatSubmit({ text, api, sessionId }) {
+        api.updateSession(sessionId, {
+          state: "working",
+          displayHint: "clawd-typing.gif",
+        });
+        api.streamAssistantMessage(`收到：${text}\n我会用苗丰知识库和种植规则来组织答案。当前 demo 先展示流式返回气泡。`, {
+          sessionId,
+        });
+        return true;
+      },
+      onSessionFocus({ session, api }) {
+        api.addNotification({
+          type: "success",
+          title: "已定位任务",
+          text: `${session?.title || session?.id || "session"} -> ${session?.focusTarget?.type || session?.cwd || "业务面板"}`,
+          force: true,
+        });
+        return {
+          status: "success",
+          reason: "demo-handoff",
+          target: session?.focusTarget || null,
+        };
+      },
+      onSessionRename({ session, title, api }) {
+        api.addNotification({
+          type: "success",
+          title: "任务标题已更新",
+          text: `${session?.id || "session"} -> ${title || "默认标题"}`,
+          force: true,
+        });
+      },
+    });
+
+    pet.startSession("main", "working", {
+      title: "担任 MF Project...",
+      displayHint: "clawd-typing.gif",
+      agentId: "openai",
+      agentLabel: "OpenAI",
+      agentColor: "#68c994",
+      provider: "MF AI",
+      model: "planner",
+      cwd: "F:/20260518-xiangmu/MF_Project",
+      host: "local",
+      platform: "windows",
+      editor: "Codex",
+      hookSource: "desktop-demo",
+      contextUsage: { used: 56000, limit: 100000, source: "mf-ai" },
+      pruneAfterMs: 300000,
+      canFocus: true,
+    });
+    pet.revealSessionHud();
+    pet.setPosition({
+      x: Math.max(24, Math.round(window.innerWidth / 2 - 222)),
+      y: Math.max(24, Math.round(window.innerHeight - 230)),
+    });
+
+    document.querySelectorAll("[data-event]").forEach((button) => {
+      button.addEventListener("click", () => pet.emit(button.dataset.event));
+    });
+
+    document.querySelectorAll("[data-agent-event]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const isPermission = button.dataset.agentEvent === "PermissionRequest";
+        pet.emitAgentEvent(button.dataset.agentEvent, {
+          sessionId: button.dataset.session,
+          title: button.textContent,
+          message: "事件已进入 MF_Pet runtime",
+          ...(isPermission ? {
+            toolName: "recommendProducts",
+            toolInput: {
+              description: "读取当前苗木品类与用户偏好，用于生成商城推荐。",
+              category: "乔木",
+              province: "浙江",
+            },
+            permissionSuggestions: [
+              { id: "allow-once", label: "本次允许", behavior: "approved", type: "setMode" },
+              { id: "allow-session", label: "本会话允许", behavior: "approved", type: "addRules" },
+            ],
+          } : {}),
+        });
+      });
+    });
+
+    document.querySelector("#multi-session").addEventListener("click", () => {
+      pet.startSession("main", "working", {
+        title: "官网问答",
+        displayHint: null,
+        agentId: "mf-website",
+        agentLabel: "MF_Website",
+        agentColor: "#7ee1a6",
+        provider: "MF AI",
+        model: "planner",
+        cwd: "F:/20260518-xiangmu/MF_Project/MF_Website",
+        host: "local",
+        platform: "windows",
+        editor: "MF_Website",
+        hookSource: "web-sdk",
+        canFocus: true,
+        focusTarget: { type: "website-question", id: "main" },
+      });
+      pet.startSession("mall", "working", {
+        title: "商城推荐",
+        agentId: "mf-mall",
+        agentLabel: "MF_Mall",
+        agentColor: "#f4d77e",
+        provider: "MF AI",
+        model: "recommend",
+        cwd: "F:/20260518-xiangmu/MF_Project/MF_Mall",
+        host: "local",
+        platform: "windows",
+        editor: "MF_Mall",
+        hookSource: "business-bridge",
+        canFocus: true,
+        focusTarget: { type: "mall-recommendation", id: "mall" },
+      });
+      pet.startSession("agent", "working", {
+        title: "AI 规划",
+        agentId: "mf-agent",
+        agentLabel: "MF_Agent",
+        agentColor: "#9ec5ff",
+        provider: "OpenAI",
+        model: "gpt",
+        cwd: "F:/20260518-xiangmu/MF_Project",
+        host: "remote-agent",
+        platform: "cloud",
+        editor: "Codex",
+        headless: true,
+        hookSource: "agent-event",
+        sourcePid: 23333,
+        canFocus: false,
+      });
+      pet.startSession("inventory", "working", {
+        title: "库存同步",
+        agentId: "mf-inventory",
+        agentLabel: "MF_Stock",
+        agentColor: "#d6b36a",
+        provider: "MF AI",
+        model: "sync",
+        cwd: "F:/20260518-xiangmu/MF_Project/MF_Mall",
+        host: "remote-agent",
+        platform: "worker",
+        editor: "MF_Stock",
+        hookSource: "inventory-bridge",
+        canFocus: true,
+      });
+      pet.revealSessionHud();
+    });
+
+    document.querySelector("#context-usage").addEventListener("click", () => {
+      pet.updateSession("main", {
+        state: "working",
+        title: "官网问答",
+        contextUsage: { used: 144000, limit: 200000, source: "mf-ai" },
+        quotaUsage: {
+          label: "MF AI 日额度",
+          usedPercent: 72,
+          remaining: 2800,
+          resetAt: Date.now() + 1000 * 60 * 74,
+          source: "mf-ai",
+        },
+        provider: "MF AI",
+        model: "planner",
+      });
+      pet.updateSession("agent", {
+        state: "sweeping",
+        title: "AI 规划",
+        contextUsage: { used: 182000, limit: 200000, source: "mf-ai" },
+        quota_usage: {
+          label: "OpenAI 限额",
+          percent: 91,
+          remaining: 900,
+          reset_at: Date.now() + 1000 * 60 * 18,
+          source: "agent-event",
+        },
+        hook_source: "PreCompact",
+      });
+      pet.addNotification({
+        type: "warning",
+        title: "上下文用量已更新",
+        text: "Session HUD 会显示紧凑百分比，详情面板显示 token 数。",
+      });
+    });
+
+    document.querySelector("#dashboard").addEventListener("click", () => {
+      pet.openDashboard();
+    });
+
+    document.querySelector("#business-bridge").addEventListener("click", () => {
+      pet.bridge.websiteAsk({ sessionId: "website-q", message: "用户正在询问苗木养护。" });
+      pet.bridge.mallRecommend({ sessionId: "mall-r", message: "商城正在生成推荐。" });
+      pet.bridge.aiPermission({
+        sessionId: "agent-perm",
+        message: "AI 需要确认后调用工具。",
+        toolName: "queryInventory",
+        toolInputDescription: "查询商城库存和价格区间。",
+        permissionSuggestions: [
+          { id: "allow-inventory", label: "允许库存查询", behavior: "approved", type: "addRules" },
+        ],
+      });
+    });
+
+    document.querySelector("#end-sessions").addEventListener("click", () => {
+      ["main", "mall", "agent", "inventory", "sub-1"].forEach((id) => pet.endSession(id));
+    });
+
+    document.querySelector("#notice").addEventListener("click", () => {
+      pet.addNotification({
+        type: "success",
+        title: "苗丰任务提醒",
+        text: "这是一条 MF 风格气泡，不复制 clawd 的 UI。",
+      });
+    });
+
+    document.querySelector("#notice-policy").addEventListener("click", () => {
+      const current = pet.getSnapshot().notificationBubbleAutoCloseSeconds;
+      const next = current === 0 ? 6 : 0;
+      pet.setNotificationBubbleAutoCloseSeconds(next);
+      pet.addNotification({
+        type: "info",
+        title: next === 0 ? "普通通知已关闭" : "普通通知已开启",
+        text: next === 0 ? "非 force 通知不会弹出，权限请求不受影响。" : "普通通知会按策略自动隐藏。",
+        force: true,
+      });
+    });
+
+    document.querySelector("#open-chat").addEventListener("click", () => {
+      pet.openChat().streamAssistantMessage("这是一个苗丰风格的流式回复气泡。后续接入真实 AI 后，可以把 token 分段推送到这里。");
+    });
+
+    document.querySelector("#mini-left").addEventListener("click", () => {
+      pet.getSnapshot().mini ? pet.exitMini() : pet.enterMini({ edge: "left" });
+    });
+
+    document.querySelector("#mini").addEventListener("click", () => {
+      pet.getSnapshot().mini ? pet.exitMini() : pet.enterMini({ edge: "right" });
+    });
+
+    document.querySelector("#json-theme").addEventListener("click", () => {
+      const json = exportPetThemeJson(clawdDevTheme);
+      const parsed = parsePetThemeJson(json);
+      pet.addNotification({
+        type: "success",
+        title: "主题 JSON 已解析",
+        text: `${parsed.id} / ${parsed.capabilities.workingTiers ? "working tiers ready" : "no tiers"}`,
+      });
+    });
+
+    document.querySelector("#load-mf-json").addEventListener("click", async () => {
+      const theme = await loadPetThemeFromUrl("../web-assets/pet/theme.json", {
+        assetBaseUrl: "../web-assets/pet",
+      });
+      pet.addNotification({
+        type: "success",
+        title: "MF 主题 JSON 可加载",
+        text: `${theme.name} / ${theme.states.idle.files[0]}`,
+      });
+    });
+
+    document.querySelector("#switch-mf").addEventListener("click", async () => {
+      const theme = await loadPetThemeFromUrl("../web-assets/pet/theme.json", {
+        assetBaseUrl: "../web-assets/pet",
+      });
+      pet.setTheme(theme, { assetsBaseUrl: "../web-assets/pet" });
+      pet.addNotification({
+        type: "success",
+        title: "已切换到 MF 主题",
+        text: theme.name,
+      });
+    });
+
+    document.querySelector("#switch-clawd").addEventListener("click", () => {
+      pet.setTheme(clawdDevTheme, { assetsBaseUrl: "../clawd-on-desk/assets/gif" });
+      pet.addNotification({
+        type: "success",
+        title: "已切回 clawd 开发主题",
+        text: "仅用于本地复刻验证。",
+      });
+    });
+
+    document.querySelector("#asset-health").addEventListener("click", async () => {
+      const health = await checkPetThemeAssets(clawdDevTheme, {
+        assetsBaseUrl: "../clawd-on-desk/assets/gif",
+        method: "GET",
+      });
+      pet.addNotification({
+        type: health.ok ? "success" : "error",
+        title: health.ok ? "素材检查通过" : "素材缺失",
+        text: health.ok ? `已检查 ${health.checked} 个资源。` : `缺失 ${health.missing.length} 个资源。`,
+      });
+    });
+
+    document.querySelector("#power").addEventListener("click", () => {
+      const next = !pet.getSnapshot().lowPower;
+      pet.setLowPower(next);
+      pet.addNotification({
+        type: "info",
+        title: next ? "低功耗已开启" : "低功耗已关闭",
+        text: next ? "idle 小动作暂停，适合页面长驻。" : "idle 小动作恢复。",
+      });
+    });
+
+    document.querySelector("#dnd").addEventListener("click", () => {
+      const next = !pet.getSnapshot().doNotDisturb;
+      pet.setDoNotDisturb(next);
+      pet.addNotification({
+        type: "info",
+        title: next ? "已进入睡眠勿扰" : "精灵已唤醒",
+        text: next ? "普通通知会静默，任务状态仍会记录。" : "任务动画和通知气泡恢复。",
+        force: true,
+      });
+    });
+
+    document.querySelector("#permission-auto-close").addEventListener("click", () => {
+      pet.setPermissionBubbleAutoCloseSeconds(4);
+      pet.emitAgentEvent("PermissionRequest", {
+        sessionId: "main",
+        title: "权限请求",
+        message: "这个气泡会在 4 秒后隐藏，但不会自动批准或拒绝。",
+        toolName: "MCP__MF_WEBSITE__QUERY_PRICE",
+        toolInput: {
+          query: "红枫 8cm 批发价",
+          path: "MF_Website/ai/price-helper",
+        },
+        permissionSuggestions: [
+          { id: "allow-query", label: "允许查询价格", behavior: "approved", type: "addRules", description: "本次允许读取商城价格索引。" },
+          { id: "plan-only", label: "只生成方案", behavior: "approved", type: "setMode", description: "不调用外部价格工具。" },
+        ],
+      });
+    });
+
+    document.querySelector("#permission-bubbles").addEventListener("click", () => {
+      const next = !pet.getSnapshot().permissionBubblesEnabled;
+      pet.setPermissionBubblesEnabled(next);
+      pet.addNotification({
+        type: "info",
+        title: next ? "权限气泡已开启" : "权限气泡已关闭",
+        text: next ? "新的权限请求会弹出 Web 卡片。" : "权限请求仍会进入 runtime，由上层流程接管。",
+        force: true,
+      });
+    });
+
+    document.querySelector("#mute").addEventListener("click", () => {
+      const next = !pet.getSnapshot().muted;
+      pet.setMuted(next);
+      pet.addNotification({
+        type: "info",
+        title: next ? "已静音" : "已取消静音",
+        text: "音效提示状态已切换。",
+      });
+    });
+
+    document.querySelector("#desktop-shell").addEventListener("click", () => {
+      const desktop = pet.getSnapshot().shellMode !== "desktop";
+      pet.setShellCapabilities({
+        shellMode: desktop ? "desktop" : "web",
+        transparentWindow: desktop,
+        alwaysOnTop: desktop,
+      });
+      pet.addNotification({
+        type: "info",
+        title: desktop ? "Desktop shell mode" : "Web shell mode",
+        text: desktop ? "transparentWindow / alwaysOnTop enabled" : "desktop-only capabilities disabled",
+        force: true,
+      });
+    });
+  </script>
+</body>
+</html>

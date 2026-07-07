@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "mf-sprout",
+  "name": "苗丰精灵",
+  "version": "0.1.0",
+  "assetBaseUrl": "/assets/pet",
+  "canvas": {
+    "width": 288,
+    "height": 288
+  },
+  "states": {
+    "idle": ["idle/idle.gif"],
+    "appearing": ["move/move.gif"],
+    "expanded": { "fallbackTo": "idle" },
+    "thinking": { "fallbackTo": "working" },
+    "working": ["work/work.gif"],
+    "juggling": { "fallbackTo": "working" },
+    "carrying": { "fallbackTo": "working" },
+    "sweeping": { "fallbackTo": "working" },
+    "notification": { "fallbackTo": "unclear" },
+    "attention": { "fallbackTo": "success" },
+    "success": ["watering/watering.gif"],
+    "unclear": ["doubt/doubt.gif"],
+    "error": ["sad/sad.gif"],
+    "resting": ["rest/rest.gif"]
+  },
+  "timings": {
+    "minDisplay": {
+      "appearing": 600,
+      "working": 1000,
+      "success": 1800,
+      "unclear": 1800,
+      "error": 2500
+    },
+    "autoReturn": {
+      "appearing": 700,
+      "success": 2200,
+      "unclear": 2600,
+      "error": 3200
+    },
+    "restingAfter": 60000
+  },
+  "ui": {
+    "spriteSize": 96,
+    "panelWidth": 324
+  }
+}

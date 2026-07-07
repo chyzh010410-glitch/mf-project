@@ -1,0 +1,19 @@
+# Java
+datacenter-api/target/
+datacenter-api/data/
+
+# Frontend
+datacenter-web/node_modules/
+datacenter-web/dist/
+
+# Logs and local environment
+*.log
+.env
+.env.*
+datacenter-api/src/main/resources/application-local.yml
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

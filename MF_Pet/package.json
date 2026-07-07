@@ -1,0 +1,22 @@
+{
+  "name": "@mf/pet",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reusable MF forest pet assets and vanilla JS component.",
+  "main": "src/forestPet.js",
+  "exports": {
+    ".": "./src/forestPet.js",
+    "./manifest": "./src/petManifest.js",
+    "./event-bridge": "./src/core/petEventBridge.js",
+    "./theme-json": "./src/core/petThemeJson.js",
+    "./theme-health": "./src/core/petThemeHealth.js",
+    "./theme-registry": "./src/core/petThemeRegistry.js",
+    "./styles": "./src/forestPet.css"
+  },
+  "scripts": {
+    "desktop": "node desktop/launch.cjs",
+    "extract:idle": "python tools/extract_status_gif.py idle",
+    "extract:all": "python tools/extract_status_gif.py doubt && python tools/extract_status_gif.py move && python tools/extract_status_gif.py rest && python tools/extract_status_gif.py sad && python tools/extract_status_gif.py work && python tools/extract_status_gif.py idle && python tools/extract_status_gif.py watering"
+  }
+}

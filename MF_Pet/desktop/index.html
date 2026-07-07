@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MF_Pet Desktop</title>
+  <link rel="stylesheet" href="../src/forestPet.css">
+  <style>
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    body {
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    }
+
+    .mf-pet {
+      right: 28px;
+      bottom: 18px;
+    }
+
+    .mf-pet__sprite-button {
+      -webkit-app-region: no-drag;
+    }
+  </style>
+</head>
+<body>
+  <script type="module">
+    import { initForestPet, clawdDevTheme } from "../src/forestPet.js";
+
+    function formatToolList(usedTools) {
+      if (!Array.isArray(usedTools) || usedTools.length === 0) return "";
+      return usedTools
+        .map((tool) => `${tool.name || "tool"}${tool.success === false ? " 失败" : ""}`)
+        .join("、");
+    }
+
+    function buildAgentRequest(text, sessionId) {
+      return {
+        sessionId,
+        message: text,
+        userId: localStorage.getItem("mf-pet-user-id") || "1001",
+        userType: localStorage.getItem("mf-pet-user-type") || "client",
+        authToken: localStorage.getItem("mf-pet-auth-token") || "",
+      };
+    }
+
+    const shellCapabilities = await window.mfPetShell.getCapabilities();
+    const pet = initForestPet({
+      theme: clawdDevTheme,
+      assetsBaseUrl: "../clawd-on-desk/assets/svg",
+      shellMode: "desktop",
+      shellCapabilities,
+      desktopWindowDrag: true,
+      initiallyVisible: true,
+      restore: false,
+      async onChatSubmit({ text, api, runtime, sessionId }) {
+        runtime.updateSession(sessionId, {
+          state: "working",
+          event: "AgentRequest",
+          agentId: "mf-agent",
+          agentLabel: "MF_AgentService",
+          agentColor: "#68c994",
+          provider: "rule-router",
+          model: "MF_AGENT_LLM_ENABLED=false",
+          displayHint: "clawd-working-thinking.svg",
+        });
+
+        try {
+          const response = await window.mfPetShell.agentChat(buildAgentRequest(text, sessionId));
+          const answer = response?.answer || "苗丰精灵暂时没有拿到有效回答。";
+          const tools = formatToolList(response?.usedTools);
+          const detail = [
+            response?.intent ? `意图：${response.intent}` : "",
+            tools ? `工具：${tools}` : "",
+            response?.conversationId ? `记录：${response.conversationId}` : "",
+            response?.fallbackReason ? `兜底：${response.fallbackReason}` : "",
+          ].filter(Boolean).join("\n");
+
+          runtime.updateSession(sessionId, {
+            state: response?.resolved === false ? "unclear" : "success",
+            event: "AgentResponse",
+            title: text,
+            displayTitle: text,
+            intent: response?.intent || "",
+            usedTools: response?.usedTools || [],
+            conversationId: response?.conversationId || null,
+            fallbackReason: response?.fallbackReason || "",
+            displayHint: "clawd-happy.svg",
+          });
+          api.streamAssistantMessage(detail ? `${answer}\n\n${detail}` : answer, {
+            sessionId,
+            interval: 16,
+            endSession: false,
+          });
+        } catch (error) {
+          const reason = error?.message || "AgentService 请求失败";
+          runtime.updateSession(sessionId, {
+            state: "error",
+            event: "AgentServiceUnavailable",
+            fallbackReason: reason,
+            displayHint: "clawd-error.svg",
+          });
+          api.streamAssistantMessage(`我现在连不上本地 AgentService。\n\n请确认 8092 服务已启动后再试。\n错误：${reason}`, {
+            sessionId,
+            interval: 12,
+            endSession: false,
+          });
+        }
+        return true;
+      },
+    });
+
+    pet.setShellCapabilities(shellCapabilities);
+  </script>
+</body>
+</html>

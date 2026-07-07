@@ -1,0 +1,27 @@
+server:
+  port: 8092
+
+spring:
+  application:
+    name: mf-agent-service
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      chat:
+        options:
+          model: ${MF_AGENT_OPENAI_MODEL:gpt-4o-mini}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+mf:
+  ep:
+    base-url: ${MF_EP_BASE_URL:http://localhost:8080}
+  datacenter:
+    base-url: ${MF_DATACENTER_BASE_URL:http://localhost:8091}
+  agent:
+    llm-enabled: ${MF_AGENT_LLM_ENABLED:false}
+    request-timeout: ${MF_AGENT_REQUEST_TIMEOUT:5s}
