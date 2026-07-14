@@ -6,9 +6,11 @@ public record ToolExecutionRecord(
         String responseSummary,
         Boolean success,
         String errorMessage,
+        ToolFailureReason failureReason,
         Long durationMs
 ) {
     public ToolCallSummary summary() {
-        return new ToolCallSummary(name, success, durationMs);
+        return new ToolCallSummary(name, success, durationMs,
+                failureReason == null ? null : failureReason.name().toLowerCase());
     }
 }

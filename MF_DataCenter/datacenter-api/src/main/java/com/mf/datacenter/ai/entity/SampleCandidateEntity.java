@@ -20,6 +20,7 @@ public class SampleCandidateEntity {
     private String reviewStatus;
     private String reviewer;
     private String reviewRemark;
+    private Boolean recommendedForKnowledge;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

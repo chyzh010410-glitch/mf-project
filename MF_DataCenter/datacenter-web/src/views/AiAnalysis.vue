@@ -26,6 +26,10 @@
         <strong>{{ data.sampleCandidateTotal }}</strong>
         <p>待人工审核</p>
       </div>
+      <div class="metric-card"><span>工具成功率</span><strong>{{ data.toolSuccessRate }}%</strong><p>真实工具调用结果</p></div>
+      <div class="metric-card"><span>未解决率</span><strong>{{ data.unresolvedRate }}%</strong><p>需要知识补充</p></div>
+      <div class="metric-card"><span>样本通过率</span><strong>{{ data.sampleApprovalRate }}%</strong><p>审核通过的样本</p></div>
+      <div class="metric-card"><span>评测通过率</span><strong>{{ evaluation.passRate }}%</strong><p>{{ evaluation.passed }}/{{ evaluation.total }} 条评测结果</p></div>
     </div>
     <div class="two-col">
       <div class="panel">
@@ -46,6 +50,7 @@
             </template>
           </el-table-column>
         </el-table>
+        <TablePager v-bind="conversationPage" @change="changeConversationPage" />
       </div>
     </div>
 
@@ -65,6 +70,18 @@
           </template>
         </el-table-column>
       </el-table>
+      <TablePager v-bind="toolPage" @change="changeToolPage" />
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><h2 class="panel-title">咨询趋势与会话追溯</h2><div class="toolbar compact-toolbar"><el-select v-model="filters.source" clearable placeholder="来源" @change="applyFilters"><el-option label="AgentService" value="MF_AgentService" /></el-select><el-input v-model="filters.intent" clearable placeholder="意图" @keyup.enter="applyFilters" /></div></div>
+      <ChartBox :option="trendOption" />
+      <el-table :data="conversations" size="small" @row-click="openTrace">
+        <el-table-column prop="question" label="问题" min-width="220" show-overflow-tooltip />
+        <el-table-column prop="source" label="来源" width="150" />
+        <el-table-column prop="intent" label="意图" width="140" />
+        <el-table-column prop="createTime" label="写入时间" width="180" />
+      </el-table>
     </div>
 
     <el-dialog v-model="dialogVisible" title="写入 AI 咨询日志" width="620px">
@@ -82,6 +99,10 @@
         <el-button type="success" @click="submit">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-drawer v-model="traceVisible" title="会话追溯" size="620px">
+      <template v-if="trace"><h3>{{ trace.conversation.question }}</h3><p>{{ trace.conversation.answer || '暂无回答内容' }}</p><h4>工具调用</h4><el-table :data="trace.toolCalls" size="small"><el-table-column prop="toolName" label="工具" /><el-table-column prop="success" label="结果"><template #default="{ row }"><el-tag :type="row.success ? 'success' : 'danger'">{{ row.success ? '成功' : '失败' }}</el-tag></template></el-table-column></el-table><h4>问题池</h4><el-table :data="trace.unresolvedQuestions" size="small"><el-table-column prop="status" label="状态" /><el-table-column prop="reason" label="原因" /></el-table><h4>样本池</h4><el-table :data="trace.sampleCandidates" size="small"><el-table-column prop="reviewStatus" label="审核" /><el-table-column prop="recommendedForKnowledge" label="推荐入库"><template #default="{ row }">{{ row.recommendedForKnowledge ? '是' : '否' }}</template></el-table-column></el-table></template>
+    </el-drawer>
 
     <el-dialog v-model="toolDialogVisible" title="写入工具调用日志" width="640px">
       <el-form :model="toolForm" label-width="104px">
@@ -108,22 +129,48 @@ import { Plus, Wrench } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
 import { api } from '../api'
 import ChartBox from '../components/ChartBox.vue'
+import TablePager from '../components/TablePager.vue'
 
-const data = reactive({ conversationTotal: 0, uniqueUserTotal: 0, unresolvedTotal: 0, toolCallTotal: 0, sampleCandidateTotal: 0, frequentQuestions: [] })
+const data = reactive({ conversationTotal: 0, uniqueUserTotal: 0, unresolvedTotal: 0, toolCallTotal: 0, sampleCandidateTotal: 0, frequentQuestions: [], conversationTrend: [], toolSuccessRate: 0, unresolvedRate: 0, sampleApprovalRate: 0 })
+const evaluation = reactive({ total: 0, passed: 0, passRate: 0 })
 const conversations = ref([])
 const toolCalls = ref([])
+const conversationPage = reactive({ pageNo: 1, pageSize: 10, total: 0 })
+const toolPage = reactive({ pageNo: 1, pageSize: 10, total: 0 })
+const filters = reactive({ source: '', intent: '' })
+const traceVisible = ref(false)
+const trace = ref(null)
 const dialogVisible = ref(false)
 const toolDialogVisible = ref(false)
 const form = reactive({ source: 'MF_AgentService', question: '', answer: '', intent: 'fertilizer_advice', resolved: true, satisfaction: 5 })
 const toolForm = reactive({ toolName: 'knowledge_search', requestSummary: '', responseSummary: '', success: true, errorMessage: '', durationMs: 120 })
 
-onMounted(load)
+onMounted(loadAll)
 
-async function load() {
-  Object.assign(data, await api.aiAnalysis())
-  conversations.value = await api.conversations()
-  toolCalls.value = await api.toolCalls()
+async function loadSummary() {
+  const [analysis, evaluationSummary] = await Promise.all([api.aiAnalysis(), api.evaluationSummary()])
+  Object.assign(data, analysis)
+  Object.assign(evaluation, evaluationSummary)
 }
+
+async function loadConversations() {
+  const conversationResult = await api.conversationPage({ ...filters, pageNo: conversationPage.pageNo, pageSize: conversationPage.pageSize })
+  conversations.value = conversationResult.records
+  Object.assign(conversationPage, conversationResult)
+}
+
+async function loadToolCalls() {
+  const toolResult = await api.toolCallPage({ pageNo: toolPage.pageNo, pageSize: toolPage.pageSize })
+  toolCalls.value = toolResult.records
+  Object.assign(toolPage, toolResult)
+}
+
+async function loadAll() { await Promise.all([loadSummary(), loadConversations(), loadToolCalls()]) }
+async function changeConversationPage (page) { Object.assign(conversationPage, page); await loadConversations() }
+async function changeToolPage (page) { Object.assign(toolPage, page); await loadToolCalls() }
+async function applyFilters() { conversationPage.pageNo = 1; await loadConversations() }
+
+async function openTrace(row) { trace.value = await api.conversationTrace(row.id); traceVisible.value = true }
 
 async function submit() {
   await api.createConversation(form)
@@ -131,7 +178,7 @@ async function submit() {
   dialogVisible.value = false
   form.question = ''
   form.answer = ''
-  await load()
+  await loadAll()
 }
 
 async function submitToolCall() {
@@ -141,14 +188,16 @@ async function submitToolCall() {
   toolForm.requestSummary = ''
   toolForm.responseSummary = ''
   toolForm.errorMessage = ''
-  await load()
+  await loadAll()
 }
 
 const questionOption = computed(() => ({
   grid: { left: 92, right: 20, top: 18, bottom: 28 },
   tooltip: {},
   xAxis: { type: 'value' },
-  yAxis: { type: 'category', data: data.frequentQuestions.map((item) => item.name) },
-  series: [{ type: 'bar', data: data.frequentQuestions.map((item) => item.value), itemStyle: { color: '#2f7d4d', borderRadius: 4 } }]
+  yAxis: { type: 'category', data: (data.frequentQuestions || []).map((item) => item.name) },
+  series: [{ type: 'bar', data: (data.frequentQuestions || []).map((item) => item.value), itemStyle: { color: '#2f7d4d', borderRadius: 4 } }]
 }))
+
+const trendOption = computed(() => ({ grid: { left: 42, right: 18, top: 18, bottom: 30 }, tooltip: { trigger: 'axis' }, xAxis: { type: 'category', data: (data.conversationTrend || []).map(item => item.date) }, yAxis: { type: 'value' }, series: [{ type: 'line', smooth: true, data: (data.conversationTrend || []).map(item => item.value), itemStyle: { color: '#2f7d4d' }, areaStyle: { opacity: .12 } }] }))
 </script>

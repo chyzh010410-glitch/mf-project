@@ -21,5 +21,6 @@ public class AiConversationLogEntity {
     private String intent;
     private Boolean resolved;
     private Integer satisfaction;
+    private LocalDateTime userDeletedAt;
     private LocalDateTime createTime;
 }

@@ -1,4 +1,4 @@
-# MF_Website 设计方针
+﻿# MF_Website 设计方针
 
 ## 1. 产品定位
 
@@ -20,7 +20,7 @@
 - `mf-frontend-client`：消费者商城、百科、文章、订单等 C 端业务。
 - `mf-frontend`：平台运营管理后台。
 - `mf-frontend-merchant`：商家入驻后的经营后台。
-- `mf-ai`：苗丰精灵背后的 AI 咨询与内容生成能力。
+- `MF_AgentService`：苗丰精灵背后的 AI 客服、工具调用和数据沉淀能力。
 
 官网后续设计必须明确连接主平台，避免变成一个与苗丰业务无关的通用环保展示页。
 

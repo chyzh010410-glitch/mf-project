@@ -1,6 +1,9 @@
 package com.mf.agentservice.agent;
 
 public enum AgentIntent {
+    GREETING("greeting"),
+    HELP("help"),
+    COMPANY("company"),
     DIRECT("direct"),
     PRODUCT("product"),
     ENCYCLOPEDIA("encyclopedia"),

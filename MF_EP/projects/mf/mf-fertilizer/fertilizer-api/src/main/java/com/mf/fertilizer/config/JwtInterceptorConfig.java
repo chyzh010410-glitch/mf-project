@@ -33,6 +33,7 @@ public class JwtInterceptorConfig implements WebMvcConfigurer {
                         "/client/products/**", "/client/categories/**",
                         "/client/encyclopedia/**", "/client/articles/**",
                         "/client/home", "/client/configs/public", "/client/faq/**", "/client/activities/**",
+                        "/internal/**",
                         "/uploads/**",
                         "/doc.html", "/webjars/**", "/v3/api-docs/**", "/swagger-resources/**", "/error"
                 );

@@ -67,10 +67,20 @@
 - `DATACENTER_DB_URL`
 - `DATACENTER_DB_USERNAME`
 - `DATACENTER_DB_PASSWORD`
-- `MF_EP_DB_URL`
-- `MF_EP_DB_USERNAME`
-- `MF_EP_DB_PASSWORD`
+- `MF_DATACENTER_INTERNAL_TOKEN`
+- `MF_DATACENTER_IDENTITY_SECRET`
+- `MF_EP_BASE_URL`
+- `MF_EP_INTERNAL_TOKEN`
 - `DATACENTER_SCHEDULER_ENABLED`
+
+完整变量清单见 `.env.production.example`。该文件只有变量名和占位符，不能填入或提交真实值。
+
+责任边界：
+
+- `MF_DATACENTER_INTERNAL_TOKEN`、`MF_DATACENTER_IDENTITY_SECRET` 由 DataCenter 负责人在本服务部署环境配置。
+- `MF_EP_INTERNAL_TOKEN` 由 MF_EP 负责人签发，DataCenter 仅在部署环境注入后用于调用 MF_EP 内部内容接口。
+- `MF_AGENT_KNOWLEDGE_SYNC_KEY` 属于 MF_AgentService 的人工故障处置凭据，不属于 DataCenter 常规生产注入项；正常发布/下线链路不调用该接口。
+- 不在 DataCenter 配置任何 `DEEPSEEK_API_KEY` 或 `OPENAI_API_KEY`；模型密钥仅属于 MF_AgentService。
 
 前端 `dist\web` 可交给 Nginx、IIS 或任意静态文件服务器托管，并把 `/api` 代理到 `http://127.0.0.1:8091`。
 
@@ -93,5 +103,5 @@
 ## 注意
 
 - 不再使用项目内临时 MySQL。
-- `MF_EP` 源库 `fertilizer` 只读使用，DataCenter 只写 `mf_datacenter`。
+- `MF_EP` 源库 `fertilizer` 只读使用，DataCenter 只写 `mf_datacenter`。生产默认关闭直接源库读取；如需开启，必须使用独立只读账号并配置 `MF_EP_DATASOURCE_ENABLED=true`。
 - 如果 `fertilizer` 缺少业务表，快照刷新可能失败，但指标字典、质量规则、问题闭环等 DataCenter 自有能力仍可运行。

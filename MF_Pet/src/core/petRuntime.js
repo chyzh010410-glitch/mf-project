@@ -950,7 +950,7 @@ export function createPetRuntime(options = {}) {
         },
         openChat() {
             state.visible = true;
-            state.expanded = true;
+            state.expanded = state.shellMode !== "desktop";
             state.chatOpen = true;
             state.dashboardOpen = false;
             machine.emit("ask-ai", { returnTo: "expanded" });
@@ -1204,7 +1204,7 @@ export function createPetRuntime(options = {}) {
         setDragging(isDragging, payload = {}) {
             state.dragging = !!isDragging;
             state.position = payload.position || state.position;
-            if (isDragging && theme.reactions.drag?.file) {
+            if (isDragging && payload.reaction !== false && theme.reactions.drag?.file) {
                 state.reaction = payload.direction === "left" && theme.reactions.drag.fileLeft
                     ? theme.reactions.drag.fileLeft
                     : payload.direction === "right" && theme.reactions.drag.fileRight

@@ -1,6 +1,7 @@
 package com.mf.agentservice.tools;
 
 import com.mf.agentservice.api.AgentChatRequest;
+import com.mf.agentservice.api.KnowledgeGap;
 import com.mf.agentservice.client.DataCenterClient;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -61,14 +62,17 @@ public class DataCenterTools {
     }
 
     @Tool(name = McpToolNames.DATACENTER_REPORT_UNRESOLVED, description = "Write an unresolved question to MF_DataCenter.")
-    public void reportUnresolved(Long conversationId, String question, String reason) {
+    public void reportUnresolved(Long conversationId, String question, String reason, KnowledgeGap knowledgeGap) {
         var body = new LinkedHashMap<String, Object>();
         body.put("conversationId", conversationId);
         body.put("question", question);
         body.put("reason", reason);
         body.put("status", "pending");
         body.put("owner", "content-ops");
-        body.put("remark", "Created by MF_AgentService");
+        body.put("remark", knowledgeGap == null ? "Created by MF_AgentService"
+                : "Created by MF_AgentService; topic=" + knowledgeGap.topic()
+                + "; risk=" + knowledgeGap.riskLevel()
+                + "; suggested=" + String.join(",", knowledgeGap.suggestedContentTypes()));
         dataCenterClient.reportUnresolved(body);
     }
 

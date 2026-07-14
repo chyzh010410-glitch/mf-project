@@ -25,6 +25,10 @@
         <span>快照新鲜度</span>
         <strong>{{ data.governance?.snapshotAgeMinutes == null ? '-' : `${data.governance.snapshotAgeMinutes} 分钟` }}</strong>
       </div>
+      <div class="status-cell">
+        <span>最近 Agent 写入</span>
+        <strong>{{ data.latestAgentWrite?.createTime || '暂无记录' }}</strong>
+      </div>
     </div>
 
     <div class="action-bar">
@@ -35,6 +39,35 @@
       <el-tag :type="data.governance?.status === 'trusted' ? 'success' : 'warning'" effect="plain">
         {{ data.governance?.latestSnapshotTime || '-' }}
       </el-tag>
+    </div>
+
+    <div class="two-col">
+      <div v-if="data.governance?.status === 'risk'" class="panel">
+        <div class="panel-header">
+        <div>
+          <h2 class="panel-title">治理风险原因</h2>
+          <p v-for="reason in data.governance.riskReasons" :key="reason">{{ reason }}</p>
+        </div>
+        <el-button type="success" :loading="refreshing" @click="refreshSnapshots">刷新小时快照</el-button>
+        </div>
+      </div>
+
+      <div class="panel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">治理待办</h2>
+          <p v-if="!data.governanceTasks?.length">当前没有待处理的治理任务</p>
+        </div>
+      </div>
+      <div v-for="task in data.governanceTasks" :key="task.id" class="task-row">
+        <div><strong>{{ task.title }}</strong><p>{{ task.content }} · {{ task.lastSeenTime }}</p></div>
+        <el-button link type="primary" @click="$router.push(task.targetPath)">处理</el-button>
+      </div>
+      </div>
+    </div>
+
+    <div v-if="data.latestAgentWrite" class="panel">
+      <div class="panel-header"><div><h2 class="panel-title">最近一次 Agent 写入</h2><p>{{ data.latestAgentWrite.question }}</p></div><el-tag effect="plain">{{ data.latestAgentWrite.source }} · {{ data.latestAgentWrite.intent || '未标注意图' }}</el-tag></div>
     </div>
 
     <div class="two-col">
@@ -65,21 +98,36 @@
 </template>
 
 <script setup>
-import { onMounted, reactive } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import { api } from '../api'
 import ChartBox from '../components/ChartBox.vue'
 
-const data = reactive({ cards: [], orderTrend: [], gmvTrend: [], categorySales: [], governance: null })
+const data = reactive({ cards: [], orderTrend: [], gmvTrend: [], categorySales: [], governance: null, latestAgentWrite: null, governanceTasks: [] })
 const status = reactive({ status: '', aiStorage: null, mfEpDatasource: null })
+const refreshing = ref(false)
 
-onMounted(async () => {
+onMounted(load)
+
+async function load() {
   const [dashboard, systemStatus] = await Promise.all([
     api.dashboard(),
     api.systemStatus()
   ])
   Object.assign(data, dashboard)
   Object.assign(status, systemStatus)
-})
+}
+
+async function refreshSnapshots() {
+  refreshing.value = true
+  try {
+    await api.refreshHourlySnapshots()
+    await load()
+    ElMessage.success('小时快照已刷新')
+  } finally {
+    refreshing.value = false
+  }
+}
 
 function lineOption(points, color) {
   return {

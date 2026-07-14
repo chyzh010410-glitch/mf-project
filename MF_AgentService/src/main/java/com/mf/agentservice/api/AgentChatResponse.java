@@ -9,6 +9,10 @@ public record AgentChatResponse(
         Boolean resolved,
         List<ToolCallSummary> usedTools,
         Long conversationId,
-        String fallbackReason
+        String fallbackReason,
+        List<AgentSource> sources,
+        Integer confidence,
+        Boolean reviewRequired,
+        KnowledgeGap knowledgeGap
 ) {
 }

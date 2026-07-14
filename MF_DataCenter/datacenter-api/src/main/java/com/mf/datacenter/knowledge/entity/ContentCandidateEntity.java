@@ -1,0 +1,3 @@
+package com.mf.datacenter.knowledge.entity;
+import com.baomidou.mybatisplus.annotation.*; import lombok.Data; import java.time.LocalDateTime;
+@Data @TableName("dc_ai_content_candidate") public class ContentCandidateEntity { @TableId(type=IdType.AUTO) private Long id; private Long gapId; private Long sourceSampleId; private String contentType; private String title; private String content; private String tags; private String riskLevel; private String aiReviewJson; private String status; private Long mfEpDraftId; private Long mfEpContentId; private String lastError; private LocalDateTime createTime; private LocalDateTime updateTime; }

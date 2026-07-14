@@ -8,7 +8,9 @@ import AiAnalysis from './views/AiAnalysis.vue'
 import UnresolvedQuestions from './views/UnresolvedQuestions.vue'
 import SampleCandidates from './views/SampleCandidates.vue'
 import MetricGovernance from './views/MetricGovernance.vue'
+import Notifications from './views/Notifications.vue'
 import DataQuality from './views/DataQuality.vue'
+import KnowledgeWorkbench from './views/KnowledgeWorkbench.vue'
 
 const routes = [
   { path: '/', redirect: '/dashboard' },
@@ -22,6 +24,8 @@ const routes = [
   { path: '/ai-analysis', component: AiAnalysis, meta: { title: 'AI 咨询分析' } },
   { path: '/unresolved-questions', component: UnresolvedQuestions, meta: { title: '未解决问题池' } },
   { path: '/sample-candidates', component: SampleCandidates, meta: { title: '样本候选池' } }
+  ,{ path: '/knowledge-workbench', component: KnowledgeWorkbench, meta: { title: 'AI 知识运营工作台' } }
+  ,{ path: '/notifications', component: Notifications, meta: { title: '通知中心' } }
 ]
 
 export default createRouter({

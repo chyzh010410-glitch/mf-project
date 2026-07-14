@@ -70,6 +70,11 @@ class AiControllerTest {
                 }
                 """.formatted(conversationId));
 
+        mockMvc.perform(get("/api/ai/conversations/{id}/trace", conversationId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.conversation.id").value(conversationId))
+                .andExpect(jsonPath("$.data.toolCalls[0].toolName").value("knowledge_search"));
+
         var unresolvedId = postAndReadId("/api/ai/unresolved-questions", """
                 {
                   "conversationId": %d,
@@ -122,7 +127,9 @@ class AiControllerTest {
 
         mockMvc.perform(get("/api/dashboard/overview"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.cards[?(@.code == 'ai_conversation_total')]").isNotEmpty());
+                .andExpect(jsonPath("$.data.cards[?(@.code == 'ai_conversation_total')]").isNotEmpty())
+                .andExpect(jsonPath("$.data.latestAgentWrite.question").value("接口测试咨询问题"))
+                .andExpect(jsonPath("$.data.governance.riskReasons").isArray());
     }
 
     @Test

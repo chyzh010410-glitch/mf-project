@@ -20,7 +20,7 @@ public class OrderTools {
         return executor.execute(context, McpToolNames.ORDER_STATUS, "orderId=" + orderId,
                 () -> {
                     if (authToken == null || authToken.isBlank()) {
-                        return ToolResult.fail("ORDER_AUTH_REQUIRED");
+                        return ToolResult.fail(ToolFailureReason.ORDER_AUTH_REQUIRED, "ORDER_AUTH_REQUIRED");
                     }
                     return ToolResult.ok(mfEpClient.orderStatus(orderId, authToken), "order status loaded");
                 });

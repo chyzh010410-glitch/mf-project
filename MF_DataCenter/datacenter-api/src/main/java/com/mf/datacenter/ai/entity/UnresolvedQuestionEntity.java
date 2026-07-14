@@ -16,8 +16,11 @@ public class UnresolvedQuestionEntity {
     private String question;
     private String reason;
     private String status;
+    private String priority;
+    private LocalDateTime dueTime;
     private String owner;
     private String remark;
+    private String knowledgeAction;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

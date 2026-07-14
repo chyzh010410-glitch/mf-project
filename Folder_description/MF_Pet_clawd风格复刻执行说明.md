@@ -1,4 +1,4 @@
-# MF_Pet clawd 风格复刻执行说明
+﻿# MF_Pet clawd 风格复刻执行说明
 
 ## 1. 当前决策
 
@@ -147,7 +147,7 @@ pet.startSession("main", "working", {
   focusTarget: { type: "website-question", id: "main" }
 });
 pet.updateSession("main", { state: "working", displayHint: "clawd-typing.gif" });
-pet.updateSession("main", { contextUsage: { used: 144000, limit: 200000, source: "mf-ai" } });
+pet.updateSession("main", { contextUsage: { used: 144000, limit: 200000, source: "MF_AgentService" } });
 pet.updateSession("main", { quotaUsage: { label: "MF AI 日额度", usedPercent: 72, remaining: 2800 } });
 pet.setPermissionBubbleAutoCloseSeconds(0);
 pet.setNotificationBubbleAutoCloseSeconds(6);
@@ -327,3 +327,4 @@ Phase 2 再换回 MF 自有模组：
 - 为 MF 精灵补齐 mini/reaction/idleAnimations 专用素材。
 - 用同一套 theme schema 描述 MF 主题。
 - `MF_Website`、商城、AI 服务统一接入 `MF_Pet` API。
+

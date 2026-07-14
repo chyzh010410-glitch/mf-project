@@ -3,11 +3,13 @@ server:
 
 spring:
   datasource:
-    url: ${DATACENTER_DB_URL:jdbc:mysql://127.0.0.1:3306/mf_datacenter?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
-    username: ${DATACENTER_DB_USERNAME:root}
-    password: ${DATACENTER_DB_PASSWORD:123456}
+    url: ${DATACENTER_DB_URL}
+    username: ${DATACENTER_DB_USERNAME}
+    password: ${DATACENTER_DB_PASSWORD}
 
 datacenter:
+  internal-token: ${MF_DATACENTER_INTERNAL_TOKEN}
+  internal-identity-secret: ${MF_DATACENTER_IDENTITY_SECRET}
   storage:
     ai-data-file: ${DATACENTER_AI_DATA_FILE:data/ai-store.json}
   mysql:
@@ -16,8 +18,11 @@ datacenter:
   scheduler:
     enabled: ${DATACENTER_SCHEDULER_ENABLED:true}
   mf-ep:
+    ai-content:
+      base-url: ${MF_EP_BASE_URL}
+      internal-token: ${MF_EP_INTERNAL_TOKEN}
     datasource:
-      enabled: ${MF_EP_DATASOURCE_ENABLED:true}
-      url: ${MF_EP_DB_URL:jdbc:mysql://127.0.0.1:3306/fertilizer?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
-      username: ${MF_EP_DB_USERNAME:root}
-      password: ${MF_EP_DB_PASSWORD:123456}
+      enabled: ${MF_EP_DATASOURCE_ENABLED:false}
+      url: ${MF_EP_DB_URL:}
+      username: ${MF_EP_DB_USERNAME:}
+      password: ${MF_EP_DB_PASSWORD:}

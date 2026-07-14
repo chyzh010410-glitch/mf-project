@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.time.LocalDate;
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping("/api/analysis")
@@ -57,6 +59,16 @@ public class AnalysisController {
     @GetMapping("/ai")
     public ApiResponse<AiAnalysis> ai() {
         var stats = aiDataStore.stats();
+        var toolCalls = aiDataStore.toolCalls();
+        var samples = aiDataStore.sampleCandidates(null, null);
+        var successfulTools = toolCalls.stream().filter(item -> Boolean.TRUE.equals(item.success())).count();
+        var approvedSamples = samples.stream().filter(item -> "approved".equals(item.reviewStatus())).count();
+        var trends = new ArrayList<TrendPoint>();
+        var conversations = aiDataStore.conversations();
+        for (var i = 6; i >= 0; i--) {
+            var day = LocalDate.now().minusDays(i);
+            trends.add(new TrendPoint(day.toString().substring(5), conversations.stream().filter(item -> day.equals(item.createTime().toLocalDate())).count()));
+        }
         return ApiResponse.ok(new AiAnalysis(
                 stats.conversationTotal(),
                 stats.uniqueUserTotal(),
@@ -65,8 +77,16 @@ public class AnalysisController {
                 stats.sampleCandidateTotal(),
                 stats.frequentQuestions().stream()
                         .map(item -> new RankItem(item.question(), item.count(), "咨询日志"))
-                        .toList()
+                        .toList(),
+                ratio(successfulTools, toolCalls.size()),
+                ratio(stats.unresolvedTotal(), stats.conversationTotal()),
+                ratio(approvedSamples, samples.size()),
+                trends
         ));
+    }
+
+    private double ratio(long numerator, long denominator) {
+        return denominator == 0 ? 0 : Math.round(numerator * 1000.0 / denominator) / 10.0;
     }
 
     public record ProductAnalysis(List<RankItem> hotProducts, List<RiskItem> riskProducts, List<RankItem> categorySales) {
@@ -78,7 +98,7 @@ public class AnalysisController {
     public record MerchantAnalysis(List<StatusCount> statusDistribution, List<RankItem> productRank, List<RankItem> orderItemRank, List<RiskItem> shippingRisks) {
     }
 
-    public record AiAnalysis(Integer conversationTotal, Integer uniqueUserTotal, Long unresolvedTotal, Integer toolCallTotal, Integer sampleCandidateTotal, List<RankItem> frequentQuestions) {
+    public record AiAnalysis(Integer conversationTotal, Integer uniqueUserTotal, Long unresolvedTotal, Integer toolCallTotal, Integer sampleCandidateTotal, List<RankItem> frequentQuestions, double toolSuccessRate, double unresolvedRate, double sampleApprovalRate, List<TrendPoint> conversationTrend) {
     }
 
     public record RankItem(String name, Number value, String note) {

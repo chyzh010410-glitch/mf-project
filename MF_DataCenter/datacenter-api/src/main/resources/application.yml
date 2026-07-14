@@ -7,16 +7,24 @@ spring:
 
 datacenter:
   internal-token: change-me
+  internal-identity-secret: change-me-identity
   storage:
     ai-data-file: data/ai-store.json
   scheduler:
     enabled: false
   mf-ep:
+    ai-content:
+      base-url: http://localhost:8080
+      internal-token: change-me
     datasource:
       enabled: false
       url:
       username:
       password:
+  agent:
+    knowledge-sync:
+      base-url: http://localhost:8092
+      internal-token: ${MF_AGENT_KNOWLEDGE_SYNC_KEY:}
 
 springdoc:
   swagger-ui:

@@ -14,7 +14,7 @@
 - `MF_EP/projects/mf/mf-frontend-client`：消费者商城、百科、文章、订单等 C 端业务。
 - `MF_EP/projects/mf/mf-frontend`：平台运营后台。
 - `MF_EP/projects/mf/mf-frontend-merchant`：商家经营后台。
-- `MF_EP/projects/mf/mf-ai`：AI 咨询与内容生成能力。
+- `MF_AgentService`：AI 客服、工具调用和数据沉淀能力。
 - `MF_Pet`：苗丰精灵素材与后续组件开发准备区。
 
 官网导航已确定方向：
@@ -335,4 +335,3 @@ npm run dev
 5. 链接占位或真实链接配置位置。
 6. `npm run build` 结果。
 7. 仍未实现的限制和后续建议。
-

@@ -363,7 +363,11 @@
 
     function setActiveTab(tab) {
       document.querySelectorAll(".sidebar-item[data-tab]").forEach((item) => {
-        item.classList.toggle("active", item.dataset.tab === tab && !item.classList.contains("doctor-indicator"));
+        if (item.classList.contains("doctor-indicator")) {
+          item.classList.add("active");
+          return;
+        }
+        item.classList.toggle("active", item.dataset.tab === tab);
       });
       document.querySelectorAll(".tab").forEach((panel) => {
         panel.classList.toggle("active", panel.id === `tab-${tab}`);

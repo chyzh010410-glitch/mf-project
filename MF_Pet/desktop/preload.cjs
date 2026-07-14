@@ -3,6 +3,9 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("mfPetShell", {
   getCapabilities: () => ipcRenderer.invoke("mf-pet-shell:get-capabilities"),
   moveBy: (delta) => ipcRenderer.send("mf-pet-shell:move-by", delta),
+  beginDrag: (payload) => ipcRenderer.invoke("mf-pet-shell:begin-drag", payload),
+  dragMove: (payload) => ipcRenderer.send("mf-pet-shell:drag-move", payload),
+  cancelDrag: () => ipcRenderer.send("mf-pet-shell:cancel-drag"),
   finishDrag: () => ipcRenderer.invoke("mf-pet-shell:finish-drag"),
   getSnapshot: () => ipcRenderer.invoke("mf-pet-shell:get-snapshot"),
   updateSnapshot: (snapshot) => ipcRenderer.send("mf-pet-shell:snapshot", snapshot),
@@ -10,6 +13,7 @@ contextBridge.exposeInMainWorld("mfPetShell", {
   openSettings: () => ipcRenderer.send("mf-pet-shell:open-settings"),
   openDashboard: () => ipcRenderer.send("mf-pet-shell:open-dashboard"),
   agentChat: (request) => ipcRenderer.invoke("mf-pet-shell:agent-chat", request),
+  setMousePassthrough: (enabled) => ipcRenderer.send("mf-pet-shell:set-mouse-passthrough", !!enabled),
   onCommand: (callback) => {
     ipcRenderer.on("mf-pet-shell:command", (_event, message) => callback(message));
   },

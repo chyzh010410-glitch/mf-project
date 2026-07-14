@@ -14,6 +14,11 @@ export default defineConfig({
       '^/(client|admin)/': {
         target: 'http://localhost:8080',
         changeOrigin: true
+      },
+      '/agent-api': {
+        target: 'http://localhost:8092',
+        changeOrigin: true,
+        rewrite: path => path.replace(/^\/agent-api/, '')
       }
     }
   }

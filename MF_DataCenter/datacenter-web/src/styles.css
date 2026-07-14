@@ -14,14 +14,16 @@ body {
 }
 
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
   display: grid;
   grid-template-columns: 236px minmax(0, 1fr);
   background: #eef7ee;
+  overflow: hidden;
 }
 
 .sidebar {
-  min-height: 100vh;
+  height: 100vh;
+  overflow-y: auto;
   padding: 20px 14px;
   background: #f7fbf6;
   border-right: 1px solid #cbdccd;
@@ -58,8 +60,11 @@ body {
 
 nav {
   display: grid;
-  gap: 5px;
+  gap: 15px;
 }
+.nav-group { display: grid; gap: 5px; }
+.nav-group-label { padding: 0 11px; color: #7a907f; font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+.notification-link { text-decoration: none; }
 
 nav a {
   height: 38px;
@@ -89,6 +94,8 @@ button:focus-visible,
 .main-area {
   min-width: 0;
   padding: 24px;
+  min-height: 100vh;
+  overflow: auto;
 }
 
 .topbar {
@@ -194,6 +201,11 @@ button:focus-visible,
   gap: 10px;
   margin-bottom: 12px;
 }
+.table-pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
 
 .toolbar .el-input,
 .toolbar .el-select {
@@ -211,9 +223,13 @@ button:focus-visible,
 .status-band,
 .quality-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
 }
+.task-row { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid #e4eee5; }
+.task-row:last-child { border-bottom: 0; }
+.task-row strong { font-size: 14px; }
+.task-row p { margin: 5px 0 0; color: #5c7562; font-size: 12px; }
 
 .status-cell,
 .summary-item {

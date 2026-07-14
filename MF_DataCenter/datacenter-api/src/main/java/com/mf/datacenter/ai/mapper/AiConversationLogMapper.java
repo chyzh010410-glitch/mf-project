@@ -14,6 +14,7 @@ public interface AiConversationLogMapper extends BaseMapper<AiConversationLogEnt
     @Select("""
             SELECT question, COUNT(*) AS total
             FROM dc_ai_conversation_log
+            WHERE user_deleted_at IS NULL
             GROUP BY question
             ORDER BY total DESC
             LIMIT 8

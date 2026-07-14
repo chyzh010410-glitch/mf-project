@@ -35,6 +35,9 @@ public class AiRecords {
     ) {
     }
 
+    public record UpdateSatisfactionRequest(@NotNull Integer satisfaction, String feedback) {
+    }
+
     public record CreateToolCallRequest(
             Long conversationId,
             @NotBlank String toolName,
@@ -59,20 +62,40 @@ public class AiRecords {
     ) {
     }
 
+    public record ConversationTrace(
+            Conversation conversation,
+            java.util.List<ToolCall> toolCalls,
+            java.util.List<UnresolvedQuestion> unresolvedQuestions,
+            java.util.List<SampleCandidate> sampleCandidates
+    ) {
+    }
+
+    public record UserConversation(Long id, String question, String answer, String intent, LocalDateTime createdAt) {}
+
+    public record UserConversationPage(String sessionId, java.util.List<UserConversation> items, long page, long pageSize, long total) {}
+
+    public record DeleteConversationResult(String sessionId, long deletedCount) {}
+
     public record CreateUnresolvedQuestionRequest(
             Long conversationId,
             @NotBlank String question,
             String reason,
             @NotBlank String status,
+            String priority,
+            LocalDateTime dueTime,
             String owner,
-            String remark
+            String remark,
+            String knowledgeAction
     ) {
     }
 
     public record UpdateUnresolvedStatusRequest(
             @NotBlank String status,
+            String priority,
+            LocalDateTime dueTime,
             String owner,
-            String remark
+            String remark,
+            String knowledgeAction
     ) {
     }
 
@@ -82,8 +105,11 @@ public class AiRecords {
             String question,
             String reason,
             String status,
+            String priority,
+            LocalDateTime dueTime,
             String owner,
             String remark,
+            String knowledgeAction,
             LocalDateTime createTime,
             LocalDateTime updateTime
     ) {
@@ -97,14 +123,16 @@ public class AiRecords {
             String qualityStatus,
             @NotBlank String reviewStatus,
             String reviewer,
-            String reviewRemark
+            String reviewRemark,
+            Boolean recommendedForKnowledge
     ) {
     }
 
     public record ReviewSampleRequest(
             @NotBlank String reviewStatus,
             String reviewer,
-            String reviewRemark
+            String reviewRemark,
+            Boolean recommendedForKnowledge
     ) {
     }
 
@@ -118,6 +146,7 @@ public class AiRecords {
             String reviewStatus,
             String reviewer,
             String reviewRemark,
+            Boolean recommendedForKnowledge,
             LocalDateTime createTime,
             LocalDateTime updateTime
     ) {

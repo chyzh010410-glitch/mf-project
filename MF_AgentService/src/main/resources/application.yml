@@ -5,11 +5,20 @@ spring:
   application:
     name: mf-agent-service
   ai:
+    model:
+      chat: ${MF_AGENT_SPRING_AI_CHAT_MODEL:none}
+      audio:
+        speech: none
+        transcription: none
+      embedding: none
+      image: none
+      moderation: none
     openai:
-      api-key: ${OPENAI_API_KEY:}
+      api-key: ${DEEPSEEK_API_KEY:${OPENAI_API_KEY:}}
+      base-url: ${MF_AGENT_OPENAI_BASE_URL:https://api.deepseek.com}
       chat:
         options:
-          model: ${MF_AGENT_OPENAI_MODEL:gpt-4o-mini}
+          model: ${MF_AGENT_OPENAI_MODEL:deepseek-v4-flash}
 
 management:
   endpoints:
@@ -18,10 +27,27 @@ management:
         include: health,info
 
 mf:
+  rag:
+    enabled: ${MF_RAG_ENABLED:false}
+    qdrant-url: ${MF_QDRANT_URL:http://localhost:6333}
+    embedding-base-url: ${MF_EMBEDDING_BASE_URL:http://localhost:8000}
+    collection: ${MF_RAG_COLLECTION:mf_knowledge}
+    score-threshold: ${MF_RAG_SCORE_THRESHOLD:0.62}
   ep:
     base-url: ${MF_EP_BASE_URL:http://localhost:8080}
+    internal-token: ${MF_EP_INTERNAL_TOKEN:}
   datacenter:
     base-url: ${MF_DATACENTER_BASE_URL:http://localhost:8091}
   agent:
     llm-enabled: ${MF_AGENT_LLM_ENABLED:false}
     request-timeout: ${MF_AGENT_REQUEST_TIMEOUT:5s}
+    llm-request-timeout: ${MF_AGENT_LLM_REQUEST_TIMEOUT:10s}
+    llm-max-requests-per-minute: ${MF_AGENT_LLM_MAX_REQUESTS_PER_MINUTE:20}
+    session-ttl: ${MF_AGENT_SESSION_TTL:20m}
+    session-max-turns: ${MF_AGENT_SESSION_MAX_TURNS:4}
+    knowledge-refresh-interval: ${MF_AGENT_KNOWLEDGE_REFRESH_INTERVAL:10m}
+    knowledge-sync-key: ${MF_AGENT_KNOWLEDGE_SYNC_KEY:}
+    knowledge-sync-poll-interval: ${MF_AGENT_KNOWLEDGE_SYNC_POLL_INTERVAL:30s}
+    knowledge-sync-max-retries: ${MF_AGENT_KNOWLEDGE_SYNC_MAX_RETRIES:5}
+    knowledge-sync-pending-timeout: ${MF_AGENT_KNOWLEDGE_SYNC_PENDING_TIMEOUT:5m}
+    evaluation-key: ${MF_AGENT_EVALUATION_KEY:}

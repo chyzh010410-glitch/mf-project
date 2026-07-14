@@ -44,17 +44,27 @@ V1 只做一个通用客服 Agent：
 - 复杂多 Agent 协同。
 - 模型微调训练平台。
 
-## 建议结构
+## 当前结构
 
 ```text
 MF_AgentService
-├── agent-core
-├── mcp-server
-├── tools
-├── prompts
-├── docs
+├── agent-core                 边界说明：Agent 核心层
+├── mcp-server                 边界说明：内部 MCP 工具层
+├── prompts                    提示词文档
+├── docs                       架构与安全边界文档
+├── src/main/java/com/mf/agentservice
+│   ├── api                    对外 HTTP 接口
+│   ├── agent                  Agent 编排、意图识别、会话记忆
+│   ├── client                 MF_EP / MF_DataCenter HTTP 客户端
+│   ├── config                 配置
+│   ├── rag                    轻量知识检索
+│   └── tools                  MCP 风格工具层
+├── src/main/resources
+├── src/test/java/com/mf/agentservice
 └── README.md
 ```
+
+V1 暂不拆成 Maven 多模块，先以标准 Spring Boot 源码结构交付，降低联调成本。
 
 ## 后续演进
 
@@ -97,6 +107,12 @@ $env:MF_AGENT_LLM_ENABLED="true"
 mvn spring-boot:run
 ```
 
+推荐使用安全启动脚本，它会在当前进程中隐藏输入 DeepSeek Key，并同时设置聊天模型开关：
+
+```powershell
+.\scripts\start-deepseek.ps1
+```
+
 ### 聊天接口
 
 ```http
@@ -120,6 +136,22 @@ Content-Type: application/json
 - `usedTools`：本轮调用过的 MCP 风格工具。
 - `conversationId`：写入 MF_DataCenter 后返回的咨询日志 ID。
 - `fallbackReason`：兜底原因。
+
+### 流式聊天
+
+```http
+POST /api/agent/chat/stream
+Content-Type: application/json
+```
+
+请求体与 `/chat` 相同。服务依次推送 `thinking`、`working`、`result` 和最终状态（`success`、`doubt` 或 `error`）的 SSE 事件。
+
+### 运行策略
+
+- `sessionId` 只保留商品、百科、商家入驻等低风险意图的最近 4 轮上下文，默认 20 分钟过期；订单和 token 不会进入会话记忆。
+- 知识索引启动时并每 10 分钟从 `MF_EP` 的公开百科、FAQ、文章接口刷新，刷新失败时保留上一份可用索引和基础安全知识。
+- LLM 默认关闭。开启时必须设置 `OPENAI_API_KEY` 与 `MF_AGENT_LLM_ENABLED=true`；可用 `MF_AGENT_LLM_REQUEST_TIMEOUT` 和 `MF_AGENT_LLM_MAX_REQUESTS_PER_MINUTE` 控制超时与调用上限。
+- `fallbackReason` 会返回 `intent_unknown`、`knowledge_not_enough`、`upstream_timeout`、`upstream_unavailable`、`upstream_business_error` 或 `datacenter_log_failed`，便于前端和 DataCenter 观察降级原因。
 
 ### V1 工具清单
 

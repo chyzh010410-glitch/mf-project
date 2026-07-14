@@ -1,7 +1,11 @@
 package com.mf.agentservice.tools;
 
+import java.net.SocketTimeoutException;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientResponseException;
 
 @Component
 public class ToolExecutor {
@@ -18,9 +22,10 @@ public class ToolExecutor {
             context.add(new ToolExecutionRecord(
                     toolName,
                     requestSummary,
-                    summarize(result.summary()),
+                    result.success() ? summarize(result.summary()) : result.failureReason().name().toLowerCase(),
                     result.success(),
                     result.errorMessage(),
+                    result.failureReason(),
                     elapsedMs(startedAt)
             ));
             return result;
@@ -30,10 +35,11 @@ public class ToolExecutor {
                     requestSummary,
                     null,
                     false,
-                    summarize(ex.getMessage()),
+                    safeMessage(ex),
+                    failureReason(ex),
                     elapsedMs(startedAt)
             ));
-            return ToolResult.fail(ex.getMessage());
+            return ToolResult.fail(failureReason(ex), safeMessage(ex));
         }
     }
 
@@ -46,5 +52,34 @@ public class ToolExecutor {
             return null;
         }
         return value.length() <= 500 ? value : value.substring(0, 500);
+    }
+
+    private ToolFailureReason failureReason(RuntimeException exception) {
+        if (hasCause(exception, SocketTimeoutException.class) || hasCause(exception, TimeoutException.class)) {
+            return ToolFailureReason.UPSTREAM_TIMEOUT;
+        }
+        if (exception instanceof RestClientResponseException) {
+            return ToolFailureReason.UPSTREAM_BUSINESS_ERROR;
+        }
+        if (exception instanceof ResourceAccessException) {
+            return ToolFailureReason.UPSTREAM_UNAVAILABLE;
+        }
+        return ToolFailureReason.UNKNOWN;
+    }
+
+    private boolean hasCause(Throwable exception, Class<? extends Throwable> type) {
+        Throwable current = exception;
+        while (current != null) {
+            if (type.isInstance(current)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private String safeMessage(RuntimeException exception) {
+        String message = exception.getMessage();
+        return message == null || message.isBlank() ? exception.getClass().getSimpleName() : summarize(message);
     }
 }

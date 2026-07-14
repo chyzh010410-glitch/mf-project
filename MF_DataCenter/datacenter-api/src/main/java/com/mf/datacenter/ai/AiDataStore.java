@@ -2,12 +2,15 @@ package com.mf.datacenter.ai;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.mf.datacenter.common.PageResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mf.datacenter.ai.entity.AiConversationLogEntity;
 import com.mf.datacenter.ai.entity.AiToolCallLogEntity;
 import com.mf.datacenter.ai.entity.SampleCandidateEntity;
 import com.mf.datacenter.ai.entity.UnresolvedQuestionEntity;
 import com.mf.datacenter.ai.mapper.AiConversationLogMapper;
+import com.mf.datacenter.ai.mapper.AiHistoryAuditLogMapper;
 import com.mf.datacenter.ai.mapper.AiToolCallLogMapper;
 import com.mf.datacenter.ai.mapper.SampleCandidateMapper;
 import com.mf.datacenter.ai.mapper.UnresolvedQuestionMapper;
@@ -35,6 +38,7 @@ public class AiDataStore {
     private final boolean mysqlEnabled;
     private final String jdbcUrl;
     private final AiConversationLogMapper conversationMapper;
+    private final AiHistoryAuditLogMapper historyAuditLogMapper;
     private final AiToolCallLogMapper toolCallMapper;
     private final UnresolvedQuestionMapper unresolvedMapper;
     private final SampleCandidateMapper sampleMapper;
@@ -53,6 +57,7 @@ public class AiDataStore {
             @Value("${datacenter.mysql.enabled:false}") boolean mysqlEnabled,
             @Value("${spring.datasource.url:}") String jdbcUrl,
             ObjectProvider<AiConversationLogMapper> conversationMapper,
+            ObjectProvider<AiHistoryAuditLogMapper> historyAuditLogMapper,
             ObjectProvider<AiToolCallLogMapper> toolCallMapper,
             ObjectProvider<UnresolvedQuestionMapper> unresolvedMapper,
             ObjectProvider<SampleCandidateMapper> sampleMapper
@@ -62,6 +67,7 @@ public class AiDataStore {
         this.mysqlEnabled = mysqlEnabled;
         this.jdbcUrl = jdbcUrl;
         this.conversationMapper = conversationMapper.getIfAvailable();
+        this.historyAuditLogMapper = historyAuditLogMapper.getIfAvailable();
         this.toolCallMapper = toolCallMapper.getIfAvailable();
         this.unresolvedMapper = unresolvedMapper.getIfAvailable();
         this.sampleMapper = sampleMapper.getIfAvailable();
@@ -83,10 +89,10 @@ public class AiDataStore {
         ));
         conversations.add(firstConversation);
         unresolvedQuestions.add(createUnresolved(new AiRecords.CreateUnresolvedQuestionRequest(
-                firstConversation.id(), "葡萄裂果和补钙时机怎么判断？", "缺少区域作物案例", "pending", "content-ops", "待补充百科"
+                firstConversation.id(), "葡萄裂果和补钙时机怎么判断？", "缺少区域作物案例", "pending", "high", null, "content-ops", "待补充百科", "补充区域作物案例"
         )));
         sampleCandidates.add(createSample(new AiRecords.CreateSampleCandidateRequest(
-                firstConversation.id(), firstConversation.question(), firstConversation.answer(), "conversation", "good", "pending", "", ""
+                firstConversation.id(), firstConversation.question(), firstConversation.answer(), "conversation", "good", "pending", "", "", false
         )));
         toolCalls.add(createToolCall(new AiRecords.CreateToolCallRequest(
                 firstConversation.id(), "fertilizer_knowledge_search", "番茄 黄叶 补肥", "命中 3 条百科片段", true, "", 126L
@@ -116,9 +122,27 @@ public class AiDataStore {
         return record;
     }
 
+    public synchronized AiRecords.Conversation updateSatisfaction(Long id, Integer satisfaction) {
+        if (satisfaction == null || satisfaction < 1 || satisfaction > 5) throw new IllegalArgumentException("satisfaction must be between 1 and 5");
+        if (mysqlEnabled) {
+            var entity = conversationMapper.selectById(id);
+            if (entity == null) throw new IllegalArgumentException("conversation not found");
+            entity.setSatisfaction(satisfaction); conversationMapper.updateById(entity); return toConversation(entity);
+        }
+        for (int index = 0; index < conversations.size(); index++) {
+            var item = conversations.get(index);
+            if (item.id().equals(id)) {
+                var updated = new AiRecords.Conversation(item.id(), item.source(), item.sessionId(), item.userId(), item.userType(), item.question(), item.answer(), item.intent(), item.resolved(), satisfaction, item.createTime());
+                conversations.set(index, updated); save(); return updated;
+            }
+        }
+        throw new IllegalArgumentException("conversation not found");
+    }
+
     public synchronized List<AiRecords.Conversation> conversations() {
         if (mysqlEnabled) {
             return conversationMapper.selectList(new LambdaQueryWrapper<AiConversationLogEntity>()
+                            .isNull(AiConversationLogEntity::getUserDeletedAt)
                             .orderByDesc(AiConversationLogEntity::getCreateTime)
                             .orderByDesc(AiConversationLogEntity::getId))
                     .stream()
@@ -128,6 +152,64 @@ public class AiDataStore {
         return conversations.stream()
                 .sorted(Comparator.comparing(AiRecords.Conversation::createTime).reversed())
                 .toList();
+    }
+
+    public synchronized List<AiRecords.Conversation> conversations(String source, String intent, LocalDateTime startTime, LocalDateTime endTime) {
+        return conversations().stream()
+                .filter(item -> !hasText(source) || source.equals(item.source()))
+                .filter(item -> !hasText(intent) || intent.equals(item.intent()))
+                .filter(item -> startTime == null || !item.createTime().isBefore(startTime))
+                .filter(item -> endTime == null || !item.createTime().isAfter(endTime))
+                .toList();
+    }
+
+    public synchronized PageResult<AiRecords.Conversation> conversationPage(String source, String intent, long pageNo, long pageSize) {
+        var safePageNo = Math.max(pageNo, 1); var safePageSize = Math.min(Math.max(pageSize, 1), 100);
+        if (mysqlEnabled) {
+            var query = new LambdaQueryWrapper<AiConversationLogEntity>().eq(hasText(source), AiConversationLogEntity::getSource, source)
+                    .eq(hasText(intent), AiConversationLogEntity::getIntent, intent).orderByDesc(AiConversationLogEntity::getCreateTime).orderByDesc(AiConversationLogEntity::getId);
+            query.isNull(AiConversationLogEntity::getUserDeletedAt);
+            var page = conversationMapper.selectPage(new Page<>(safePageNo, safePageSize), query);
+            return PageResult.of(page.getRecords().stream().map(this::toConversation).toList(), page.getTotal(), safePageNo, safePageSize);
+        }
+        return page(conversations(source, intent, null, null), safePageNo, safePageSize);
+    }
+
+    public synchronized AiRecords.ConversationTrace conversationTrace(Long conversationId) {
+        var conversation = conversations().stream().filter(item -> item.id().equals(conversationId)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("conversation not found"));
+        return new AiRecords.ConversationTrace(
+                conversation,
+                toolCalls().stream().filter(item -> conversationId.equals(item.conversationId())).toList(),
+                unresolvedQuestions(null, null).stream().filter(item -> conversationId.equals(item.conversationId())).toList(),
+                sampleCandidates(null, null).stream().filter(item -> conversationId.equals(item.conversationId())).toList()
+        );
+    }
+
+    public synchronized AiRecords.UserConversationPage userConversations(String userId, String sessionId, long page, long pageSize) {
+        var safePage = Math.max(page, 1); var safeSize = Math.min(Math.max(pageSize, 1), 100);
+        if (mysqlEnabled) {
+            if (sessionBelongsToOtherUser(userId, sessionId)) { audit("read", "forbidden", userId, sessionId, "session belongs to another user"); throw new HistoryAccessService.HistoryForbiddenException("会话不属于当前用户"); }
+            var query = new LambdaQueryWrapper<AiConversationLogEntity>().eq(AiConversationLogEntity::getUserId, userId).eq(AiConversationLogEntity::getSessionId, sessionId)
+                    .isNull(AiConversationLogEntity::getUserDeletedAt).orderByAsc(AiConversationLogEntity::getCreateTime).orderByAsc(AiConversationLogEntity::getId);
+            var result = conversationMapper.selectPage(new Page<>(safePage, safeSize), query);
+            audit("read", "ok", userId, sessionId, null);
+            return new AiRecords.UserConversationPage(sessionId, result.getRecords().stream().map(this::toUserConversation).toList(), safePage, safeSize, result.getTotal());
+        }
+        var rows = conversations.stream().filter(item -> userId.equals(item.userId()) && sessionId.equals(item.sessionId())).sorted(java.util.Comparator.comparing(AiRecords.Conversation::createTime)).toList();
+        return new AiRecords.UserConversationPage(sessionId, rows.stream().skip((safePage - 1) * safeSize).limit(safeSize).map(this::toUserConversation).toList(), safePage, safeSize, rows.size());
+    }
+
+    public synchronized AiRecords.DeleteConversationResult deleteUserConversations(String userId, String sessionId) {
+        if (mysqlEnabled) {
+            if (sessionBelongsToOtherUser(userId, sessionId)) { audit("delete", "forbidden", userId, sessionId, "session belongs to another user"); throw new HistoryAccessService.HistoryForbiddenException("会话不属于当前用户"); }
+            var count = conversationMapper.update(null, new LambdaUpdateWrapper<AiConversationLogEntity>().eq(AiConversationLogEntity::getUserId, userId).eq(AiConversationLogEntity::getSessionId, sessionId)
+                    .isNull(AiConversationLogEntity::getUserDeletedAt).set(AiConversationLogEntity::getUserDeletedAt, LocalDateTime.now()));
+            audit("delete", "ok", userId, sessionId, "deleted=" + count);
+            return new AiRecords.DeleteConversationResult(sessionId, count);
+        }
+        var count = conversations.removeIf(item -> userId.equals(item.userId()) && sessionId.equals(item.sessionId())) ? 1 : 0;
+        return new AiRecords.DeleteConversationResult(sessionId, count);
     }
 
     public synchronized AiRecords.ToolCall addToolCall(AiRecords.CreateToolCallRequest request) {
@@ -164,9 +246,18 @@ public class AiDataStore {
                 .toList();
     }
 
+    public synchronized PageResult<AiRecords.ToolCall> toolCallPage(long pageNo, long pageSize) {
+        var safePageNo = Math.max(pageNo, 1); var safePageSize = Math.min(Math.max(pageSize, 1), 100);
+        if (mysqlEnabled) {
+            var page = toolCallMapper.selectPage(new Page<>(safePageNo, safePageSize), new LambdaQueryWrapper<AiToolCallLogEntity>().orderByDesc(AiToolCallLogEntity::getCreateTime).orderByDesc(AiToolCallLogEntity::getId));
+            return PageResult.of(page.getRecords().stream().map(this::toToolCall).toList(), page.getTotal(), safePageNo, safePageSize);
+        }
+        return page(toolCalls(), safePageNo, safePageSize);
+    }
+
     public synchronized AiRecords.AiStats stats() {
         if (mysqlEnabled) {
-            var conversations = conversationMapper.selectList(null);
+            var conversations = conversationMapper.selectList(new LambdaQueryWrapper<AiConversationLogEntity>().isNull(AiConversationLogEntity::getUserDeletedAt));
             var activeUnresolved = unresolvedMapper.selectCount(new LambdaQueryWrapper<UnresolvedQuestionEntity>()
                     .in(UnresolvedQuestionEntity::getStatus, "pending", "processing"));
             var frequentQuestions = conversationMapper.frequentQuestions().stream()
@@ -210,8 +301,11 @@ public class AiDataStore {
             entity.setQuestion(request.question());
             entity.setReason(request.reason());
             entity.setStatus(request.status());
+            entity.setPriority(normalizePriority(request.priority()));
+            entity.setDueTime(request.dueTime());
             entity.setOwner(request.owner());
             entity.setRemark(request.remark());
+            entity.setKnowledgeAction(request.knowledgeAction());
             entity.setCreateTime(LocalDateTime.now());
             entity.setUpdateTime(entity.getCreateTime());
             unresolvedMapper.insert(entity);
@@ -242,14 +336,29 @@ public class AiDataStore {
                 .toList();
     }
 
+    public synchronized PageResult<AiRecords.UnresolvedQuestion> unresolvedPage(String status, String keyword, long pageNo, long pageSize) {
+        var safePageNo = Math.max(pageNo, 1); var safePageSize = Math.min(Math.max(pageSize, 1), 100);
+        if (mysqlEnabled) {
+            var query = new LambdaQueryWrapper<UnresolvedQuestionEntity>().eq(hasText(status), UnresolvedQuestionEntity::getStatus, status)
+                    .and(hasText(keyword), wrapper -> wrapper.like(UnresolvedQuestionEntity::getQuestion, keyword).or().like(UnresolvedQuestionEntity::getReason, keyword))
+                    .orderByDesc(UnresolvedQuestionEntity::getUpdateTime).orderByDesc(UnresolvedQuestionEntity::getId);
+            var result = unresolvedMapper.selectPage(new Page<>(safePageNo, safePageSize), query);
+            return PageResult.of(result.getRecords().stream().map(this::toUnresolved).toList(), result.getTotal(), safePageNo, safePageSize);
+        }
+        return page(unresolvedQuestions(status, keyword), safePageNo, safePageSize);
+    }
+
     public synchronized AiRecords.UnresolvedQuestion updateUnresolved(Long id, AiRecords.UpdateUnresolvedStatusRequest request) {
         validateStatus(request.status(), List.of("pending", "processing", "resolved", "ignored"));
         if (mysqlEnabled) {
             var updated = unresolvedMapper.update(null, new LambdaUpdateWrapper<UnresolvedQuestionEntity>()
                     .eq(UnresolvedQuestionEntity::getId, id)
                     .set(UnresolvedQuestionEntity::getStatus, request.status())
+                    .set(UnresolvedQuestionEntity::getPriority, normalizePriority(request.priority()))
+                    .set(UnresolvedQuestionEntity::getDueTime, request.dueTime())
                     .set(UnresolvedQuestionEntity::getOwner, request.owner())
                     .set(UnresolvedQuestionEntity::getRemark, request.remark())
+                    .set(UnresolvedQuestionEntity::getKnowledgeAction, request.knowledgeAction())
                     .set(UnresolvedQuestionEntity::getUpdateTime, LocalDateTime.now()));
             if (updated == 0) {
                 throw new IllegalArgumentException("unresolved question not found");
@@ -261,7 +370,7 @@ public class AiDataStore {
             if (item.id().equals(id)) {
                 var updated = new AiRecords.UnresolvedQuestion(
                         item.id(), item.conversationId(), item.question(), item.reason(),
-                        request.status(), request.owner(), request.remark(), item.createTime(), LocalDateTime.now()
+                        request.status(), normalizePriority(request.priority()), request.dueTime(), request.owner(), request.remark(), request.knowledgeAction(), item.createTime(), LocalDateTime.now()
                 );
                 unresolvedQuestions.set(i, updated);
                 save();
@@ -283,6 +392,7 @@ public class AiDataStore {
             entity.setReviewStatus(request.reviewStatus());
             entity.setReviewer(request.reviewer());
             entity.setReviewRemark(request.reviewRemark());
+            entity.setRecommendedForKnowledge(Boolean.TRUE.equals(request.recommendedForKnowledge()));
             entity.setCreateTime(LocalDateTime.now());
             entity.setUpdateTime(entity.getCreateTime());
             sampleMapper.insert(entity);
@@ -313,6 +423,18 @@ public class AiDataStore {
                 .toList();
     }
 
+    public synchronized PageResult<AiRecords.SampleCandidate> samplePage(String reviewStatus, String keyword, long pageNo, long pageSize) {
+        var safePageNo = Math.max(pageNo, 1); var safePageSize = Math.min(Math.max(pageSize, 1), 100);
+        if (mysqlEnabled) {
+            var query = new LambdaQueryWrapper<SampleCandidateEntity>().eq(hasText(reviewStatus), SampleCandidateEntity::getReviewStatus, reviewStatus)
+                    .and(hasText(keyword), wrapper -> wrapper.like(SampleCandidateEntity::getQuestion, keyword).or().like(SampleCandidateEntity::getAnswer, keyword))
+                    .orderByDesc(SampleCandidateEntity::getUpdateTime).orderByDesc(SampleCandidateEntity::getId);
+            var result = sampleMapper.selectPage(new Page<>(safePageNo, safePageSize), query);
+            return PageResult.of(result.getRecords().stream().map(this::toSample).toList(), result.getTotal(), safePageNo, safePageSize);
+        }
+        return page(sampleCandidates(reviewStatus, keyword), safePageNo, safePageSize);
+    }
+
     public synchronized AiRecords.SampleCandidate reviewSample(Long id, AiRecords.ReviewSampleRequest request) {
         validateStatus(request.reviewStatus(), List.of("pending", "approved", "rejected"));
         if (mysqlEnabled) {
@@ -321,6 +443,7 @@ public class AiDataStore {
                     .set(SampleCandidateEntity::getReviewStatus, request.reviewStatus())
                     .set(SampleCandidateEntity::getReviewer, request.reviewer())
                     .set(SampleCandidateEntity::getReviewRemark, request.reviewRemark())
+                    .set(SampleCandidateEntity::getRecommendedForKnowledge, Boolean.TRUE.equals(request.recommendedForKnowledge()))
                     .set(SampleCandidateEntity::getUpdateTime, LocalDateTime.now()));
             if (updated == 0) {
                 throw new IllegalArgumentException("sample candidate not found");
@@ -332,7 +455,7 @@ public class AiDataStore {
             if (item.id().equals(id)) {
                 var updated = new AiRecords.SampleCandidate(
                         item.id(), item.conversationId(), item.question(), item.answer(), item.source(),
-                        item.qualityStatus(), request.reviewStatus(), request.reviewer(), request.reviewRemark(),
+                        item.qualityStatus(), request.reviewStatus(), request.reviewer(), request.reviewRemark(), Boolean.TRUE.equals(request.recommendedForKnowledge()),
                         item.createTime(), LocalDateTime.now()
                 );
                 sampleCandidates.set(i, updated);
@@ -362,10 +485,10 @@ public class AiDataStore {
                 "番茄叶片发黄应该补什么肥？", "建议先确认土壤湿度，再补充含镁水溶肥。", "fertilizer_advice", true, 5
         ));
         addUnresolved(new AiRecords.CreateUnresolvedQuestionRequest(
-                firstConversation.id(), "葡萄裂果和补钙时机怎么判断？", "缺少区域作物案例", "pending", "content-ops", "待补充百科"
+                firstConversation.id(), "葡萄裂果和补钙时机怎么判断？", "缺少区域作物案例", "pending", "high", null, "content-ops", "待补充百科", "补充区域作物案例"
         ));
         addSample(new AiRecords.CreateSampleCandidateRequest(
-                firstConversation.id(), firstConversation.question(), firstConversation.answer(), "conversation", "good", "pending", "", ""
+                firstConversation.id(), firstConversation.question(), firstConversation.answer(), "conversation", "good", "pending", "", "", false
         ));
         addToolCall(new AiRecords.CreateToolCallRequest(
                 firstConversation.id(), "fertilizer_knowledge_search", "番茄 黄叶 补肥", "命中 3 条百科片段", true, "", 126L
@@ -383,6 +506,12 @@ public class AiDataStore {
                 entity.getQuestion(), entity.getAnswer(), entity.getIntent(), entity.getResolved(), entity.getSatisfaction(), entity.getCreateTime());
     }
 
+    private AiRecords.UserConversation toUserConversation(AiConversationLogEntity entity) { return new AiRecords.UserConversation(entity.getId(), entity.getQuestion(), entity.getAnswer(), entity.getIntent(), entity.getCreateTime()); }
+    private AiRecords.UserConversation toUserConversation(AiRecords.Conversation item) { return new AiRecords.UserConversation(item.id(), item.question(), item.answer(), item.intent(), item.createTime()); }
+
+    private boolean sessionBelongsToOtherUser(String userId, String sessionId) { return conversationMapper.selectCount(new LambdaQueryWrapper<AiConversationLogEntity>().eq(AiConversationLogEntity::getSessionId, sessionId).ne(AiConversationLogEntity::getUserId, userId)) > 0; }
+    private void audit(String action, String outcome, String userId, String sessionId, String detail) { if (historyAuditLogMapper == null) return; var row = new com.mf.datacenter.ai.entity.AiHistoryAuditLogEntity(); row.setAction(action); row.setOutcome(outcome); row.setActorUserId(userId); row.setSessionId(sessionId); row.setDetail(detail); row.setCreateTime(LocalDateTime.now()); historyAuditLogMapper.insert(row); }
+
     private AiRecords.ToolCall toToolCall(AiToolCallLogEntity entity) {
         return new AiRecords.ToolCall(entity.getId(), entity.getConversationId(), entity.getToolName(), entity.getRequestSummary(),
                 entity.getResponseSummary(), entity.getSuccess(), entity.getErrorMessage(), entity.getDurationMs(), entity.getCreateTime());
@@ -390,13 +519,13 @@ public class AiDataStore {
 
     private AiRecords.UnresolvedQuestion toUnresolved(UnresolvedQuestionEntity entity) {
         return new AiRecords.UnresolvedQuestion(entity.getId(), entity.getConversationId(), entity.getQuestion(), entity.getReason(),
-                entity.getStatus(), entity.getOwner(), entity.getRemark(), entity.getCreateTime(), entity.getUpdateTime());
+                entity.getStatus(), entity.getPriority(), entity.getDueTime(), entity.getOwner(), entity.getRemark(), entity.getKnowledgeAction(), entity.getCreateTime(), entity.getUpdateTime());
     }
 
     private AiRecords.SampleCandidate toSample(SampleCandidateEntity entity) {
         return new AiRecords.SampleCandidate(entity.getId(), entity.getConversationId(), entity.getQuestion(), entity.getAnswer(),
                 entity.getSource(), entity.getQualityStatus(), entity.getReviewStatus(), entity.getReviewer(), entity.getReviewRemark(),
-                entity.getCreateTime(), entity.getUpdateTime());
+                entity.getRecommendedForKnowledge(), entity.getCreateTime(), entity.getUpdateTime());
     }
 
     private AiRecords.Conversation createConversation(AiRecords.CreateConversationRequest request) {
@@ -407,7 +536,7 @@ public class AiDataStore {
     private AiRecords.UnresolvedQuestion createUnresolved(AiRecords.CreateUnresolvedQuestionRequest request) {
         var now = LocalDateTime.now();
         return new AiRecords.UnresolvedQuestion(unresolvedIds.incrementAndGet(), request.conversationId(), request.question(), request.reason(),
-                request.status(), request.owner(), request.remark(), now, now);
+                request.status(), normalizePriority(request.priority()), request.dueTime(), request.owner(), request.remark(), request.knowledgeAction(), now, now);
     }
 
     private AiRecords.ToolCall createToolCall(AiRecords.CreateToolCallRequest request) {
@@ -418,7 +547,7 @@ public class AiDataStore {
     private AiRecords.SampleCandidate createSample(AiRecords.CreateSampleCandidateRequest request) {
         var now = LocalDateTime.now();
         return new AiRecords.SampleCandidate(sampleIds.incrementAndGet(), request.conversationId(), request.question(), request.answer(),
-                request.source(), request.qualityStatus(), request.reviewStatus(), request.reviewer(), request.reviewRemark(), now, now);
+                request.source(), request.qualityStatus(), request.reviewStatus(), request.reviewer(), request.reviewRemark(), Boolean.TRUE.equals(request.recommendedForKnowledge()), now, now);
     }
 
     private boolean contains(String value, String keyword) {
@@ -427,6 +556,16 @@ public class AiDataStore {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private String normalizePriority(String priority) {
+        return priority != null && List.of("low", "normal", "high", "urgent").contains(priority) ? priority : "normal";
+    }
+
+    private <T> PageResult<T> page(List<T> rows, long pageNo, long pageSize) {
+        var from = (int) Math.min((pageNo - 1) * pageSize, rows.size());
+        var to = (int) Math.min(from + pageSize, rows.size());
+        return PageResult.of(rows.subList(from, to), rows.size(), pageNo, pageSize);
     }
 
     private void load() {

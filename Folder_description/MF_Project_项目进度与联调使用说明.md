@@ -36,7 +36,7 @@ MF_EP 当前包含：
 | 管理端 | `mf-frontend` | 平台后台管理端，Vite + Vue + Element Plus |
 | 客户端 | `mf-frontend-client` | C 端用户商城/内容/订单等页面 |
 | 商家端 | `mf-frontend-merchant` | 商家登录、商品、订单、店铺资料等管理页面 |
-| AI 服务 | `mf-ai` | 独立 AI 服务目录，当前不作为本轮联调主线 |
+| AI 客服服务 | `MF_AgentService` | 独立 Agent 服务；MF_EP AI 客服通过 HTTP API 接入 |
 
 已完成事项：
 
@@ -44,8 +44,10 @@ MF_EP 当前包含：
 2. 管理端 `mf-frontend` 已优先对齐 `MF_DataCenter/datacenter-web` 的中台视觉风格。
 3. 客户端 `mf-frontend-client` 和商家端 `mf-frontend-merchant` 已接入官方 logo。
 4. 客户端和商家端登录页已调整为与管理端一致的左右分栏登录布局。
-5. 客户端、商家端构建已通过。
-6. 官方 logo 使用规范已写入：
+5. 客户端 AI 客服入口 `/ai` 已改为调用 `MF_AgentService` 的 `/api/agent/chat`，不再调用 MF_EP 内部 `/client/ai/chat`。
+6. 旧 `MF_EP/projects/mf/mf-ai` 目录已删除，不再作为启动、联调、验收或部署范围。
+7. 客户端、商家端构建已通过。
+8. 官方 logo 使用规范已写入：
 
 ```text
 F:\20260518-xiangmu\MF_Project\Folder_description\MF_Logo_官方Logo使用规范.md
@@ -63,6 +65,20 @@ npm run build
 
 构建结果：通过。  
 备注：Vite 输出中存在 VueUse PURE 注释和大 chunk 警告，属于非阻断警告。
+
+AI 客服新边界：
+
+```text
+MF_EP 客户端 /ai
+  -> /agent-api/api/agent/chat
+  -> MF_AgentService: http://localhost:8092
+```
+
+AgentService 详细接口见：
+
+```text
+F:\20260518-xiangmu\MF_Project\Folder_description\MF_AgentService_MF_EP_AI客服对接接口文档.md
+```
 
 ### 2.2 MF_DataCenter 数据中台
 

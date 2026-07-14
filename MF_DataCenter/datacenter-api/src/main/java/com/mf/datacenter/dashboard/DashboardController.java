@@ -3,6 +3,7 @@ package com.mf.datacenter.dashboard;
 import com.mf.datacenter.ai.AiDataStore;
 import com.mf.datacenter.common.ApiResponse;
 import com.mf.datacenter.metric.MetricSnapshotService;
+import com.mf.datacenter.notification.NotificationService;
 import com.mf.datacenter.quality.DataQualityService;
 import com.mf.datacenter.source.SourceContractService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -24,19 +26,22 @@ public class DashboardController {
     private final MetricSnapshotService metricSnapshotService;
     private final DataQualityService dataQualityService;
     private final SourceContractService sourceContractService;
+    private final NotificationService notificationService;
 
     public DashboardController(
             AiDataStore aiDataStore,
             MfEpDashboardReadService mfEpDashboardReadService,
             MetricSnapshotService metricSnapshotService,
             DataQualityService dataQualityService,
-            SourceContractService sourceContractService
+            SourceContractService sourceContractService,
+            NotificationService notificationService
     ) {
         this.aiDataStore = aiDataStore;
         this.mfEpDashboardReadService = mfEpDashboardReadService;
         this.metricSnapshotService = metricSnapshotService;
         this.dataQualityService = dataQualityService;
         this.sourceContractService = sourceContractService;
+        this.notificationService = notificationService;
     }
 
     @GetMapping("/overview")
@@ -48,11 +53,11 @@ public class DashboardController {
             var gmvTrend = metricSnapshotService.dailyTrend("gmv_total");
             var categorySales = metricSnapshotService.latestCategorySales();
             return ApiResponse.ok(new DashboardOverview(snapshotCards, orderTrend, gmvTrend,
-                    categorySales.isEmpty() ? fallbackCategorySales() : categorySales, governance));
+                    categorySales.isEmpty() ? fallbackCategorySales() : categorySales, governance, latestAgentWrite(), governanceTasks()));
         }
         var realtime = realtimeOverview();
         return ApiResponse.ok(new DashboardOverview(realtime.cards(), realtime.orderTrend(), realtime.gmvTrend(),
-                realtime.categorySales(), governance));
+                realtime.categorySales(), governance, latestAgentWrite(), governanceTasks()));
     }
 
     private GovernanceStatus governanceStatus() {
@@ -64,9 +69,32 @@ public class DashboardController {
                 .max(LocalDateTime::compareTo)
                 .orElse(null);
         var snapshotAgeMinutes = latestSnapshotTime == null ? null : Duration.between(latestSnapshotTime, LocalDateTime.now()).toMinutes();
+        var riskReasons = new ArrayList<String>();
+        if (!Boolean.TRUE.equals(source.connected())) {
+            riskReasons.add("MF_EP 源库连接不可用");
+        }
+        if (source.failedTables() > 0) {
+            riskReasons.add("源表契约异常 " + source.failedTables() + " 项");
+        }
+        if (source.missingFields() > 0) {
+            riskReasons.add("源表缺失字段 " + source.missingFields() + " 项");
+        }
+        if (quality.failed() > 0) {
+            riskReasons.add("数据质量检查失败 " + quality.failed() + " 项");
+        }
+        if (latestSnapshotTime == null) {
+            riskReasons.add("尚未生成指标快照，请先刷新小时快照");
+        } else if (snapshotAgeMinutes > 120) {
+            riskReasons.add("指标快照已过期 " + snapshotAgeMinutes + " 分钟，请刷新小时快照");
+        }
+        var activeIssues = dataQualityService.issues("open").size() + dataQualityService.issues("processing").size();
+        if (activeIssues > 0) {
+            riskReasons.add("存在 " + activeIssues + " 个待处理质量问题");
+        }
         var healthy = Boolean.TRUE.equals(source.connected())
                 && source.failedTables() == 0
                 && quality.failed() == 0
+                && activeIssues == 0
                 && latestSnapshotTime != null
                 && snapshotAgeMinutes <= 120;
         return new GovernanceStatus(
@@ -75,11 +103,26 @@ public class DashboardController {
                 source.failedTables(),
                 source.missingFields(),
                 quality.failed(),
-                dataQualityService.issues("open").size() + dataQualityService.issues("processing").size(),
+                activeIssues,
                 latestSnapshotTime,
                 snapshotAgeMinutes,
-                healthy ? "数据源、质量和快照均正常" : "存在需要关注的治理信号"
+                healthy ? "数据源、质量和快照均正常" : String.join("；", riskReasons),
+                riskReasons
         );
+    }
+
+    private AgentWrite latestAgentWrite() {
+        return aiDataStore.conversations().stream()
+                .findFirst()
+                .map(item -> new AgentWrite(item.source(), item.intent(), item.question(), item.createTime()))
+                .orElse(null);
+    }
+
+    private List<GovernanceTask> governanceTasks() {
+        return notificationService.notifications().stream()
+                .filter(item -> !item.read())
+                .map(item -> new GovernanceTask(item.id(), item.title(), item.content(), item.severity(), "system", item.updateTime(), item.targetPath()))
+                .toList();
     }
 
     private List<MetricCard> snapshotCards() {
@@ -117,7 +160,7 @@ public class DashboardController {
                     new MetricCard("商家总数", "merchant_total", String.valueOf(facts.merchantTotal()), "待审核 " + facts.pendingMerchantTotal()),
                     new MetricCard("AI 咨询次数", "ai_conversation_total", String.valueOf(aiStats.conversationTotal()), "未解决 " + aiStats.unresolvedTotal())
             );
-            return new DashboardOverview(cards, facts.orderTrend(), facts.gmvTrend(), facts.categorySales(), null);
+            return new DashboardOverview(cards, facts.orderTrend(), facts.gmvTrend(), facts.categorySales(), null, null, List.of());
         }
         var cards = List.of(
                 new MetricCard("用户总数", "user_total", "12,580", "演示数据"),
@@ -139,7 +182,7 @@ public class DashboardController {
                 new TrendPoint("07-02", 89300), new TrendPoint("07-03", 94600),
                 new TrendPoint("07-04", 102400)
         );
-        return new DashboardOverview(cards, orderTrend, gmvTrend, fallbackCategorySales(), null);
+        return new DashboardOverview(cards, orderTrend, gmvTrend, fallbackCategorySales(), null, null, List.of());
     }
 
     private List<CategoryShare> fallbackCategorySales() {
@@ -159,7 +202,9 @@ public class DashboardController {
             List<TrendPoint> orderTrend,
             List<TrendPoint> gmvTrend,
             List<CategoryShare> categorySales,
-            GovernanceStatus governance
+            GovernanceStatus governance,
+            AgentWrite latestAgentWrite,
+            List<GovernanceTask> governanceTasks
     ) {
     }
 
@@ -172,8 +217,15 @@ public class DashboardController {
             long activeIssues,
             LocalDateTime latestSnapshotTime,
             Long snapshotAgeMinutes,
-            String message
+            String message,
+            List<String> riskReasons
     ) {
+    }
+
+    public record AgentWrite(String source, String intent, String question, LocalDateTime createTime) {
+    }
+
+    public record GovernanceTask(Long id, String title, String content, String severity, String owner, LocalDateTime lastSeenTime, String targetPath) {
     }
 
     public record MetricCard(String name, String code, String value, String note) {

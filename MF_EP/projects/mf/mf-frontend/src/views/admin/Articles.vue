@@ -83,7 +83,6 @@
           <el-col :span="24">
             <el-form-item label="文章标题" prop="title">
               <el-input v-model="formData.title" placeholder="请输入文章标题" />
-              <el-button type="warning" size="small" style="margin-left:8px" :loading="aiGenerating" @click="openAiDraft">AI 生成草稿</el-button>
             </el-form-item>
           </el-col>
           <el-col :span="24">
@@ -150,11 +149,6 @@
       </template>
     </el-dialog>
 
-    <!-- AI 草稿弹窗 -->
-    <el-dialog v-model="aiVisible" title="AI 生成文章草稿" width="480px" :close-on-click-modal="false">
-      <el-form><el-form-item label="文章主题"><el-input v-model="aiTopic" placeholder="如：果树冬季修剪五大要点" /></el-form-item></el-form>
-      <template #footer><el-button @click="aiVisible=false">取消</el-button><el-button type="primary" :loading="aiGenerating" @click="handleAiDraft">生成草稿</el-button></template>
-    </el-dialog>
   </div>
 </template>
 
@@ -162,7 +156,6 @@
 import { reactive, ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Edit, Delete } from '@element-plus/icons-vue'
-import request from '@/utils/request'
 import { resolveImageUrl } from '@/utils/format'
 import {
   getArticlePage, getArticleDetail,
@@ -343,27 +336,6 @@ const handleToggleRecommend = async (row) => {
     row.isRecommend = row.isRecommend === 1 ? 0 : 1
     ElMessage.success('切换成功')
   } catch { /* ignore */ }
-}
-
-// AI 草稿
-const aiVisible = ref(false)
-const aiTopic = ref('')
-const aiGenerating = ref(false)
-const openAiDraft = () => { aiTopic.value = ''; aiVisible.value = true }
-const handleAiDraft = async () => {
-  if (!aiTopic.value.trim()) return ElMessage.warning('请输入文章主题')
-  aiGenerating.value = true
-  try {
-    const res = await request({ url: '/admin/ai/article/draft', method: 'post', data: { topic: aiTopic.value } })
-    if (res.code === 200 && res.data) {
-      formData.title = res.data.title || ''
-      formData.summary = res.data.summary || ''
-      formData.tags = res.data.tags || ''
-      formData.content = res.data.content || ''
-      ElMessage.success('草稿已生成，请检查修改后保存')
-      aiVisible.value = false
-    } else { ElMessage.error(res.msg || '生成失败') }
-  } catch { ElMessage.error('AI 服务暂不可用') } finally { aiGenerating.value = false }
 }
 
 onMounted(() => { fetchData() })

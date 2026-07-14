@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><style>*{box-sizing:border-box}html,body,#hit{width:100%;height:100%;margin:0;overflow:hidden;background:rgba(0,0,0,.004)}#hit{cursor:grab}#hit.dragging{cursor:grabbing}</style></head><body><div id="hit"></div><script>
+const hit=document.getElementById('hit');let down=null,dragging=false,miniMode=false,clickCount=0,clickTimer=null,firstClickLeft=false;const threshold=3,clickWindow=400;
+hit.addEventListener('pointerdown',(event)=>{if(event.button!==0||miniMode)return;down={x:event.clientX,y:event.clientY,id:event.pointerId};dragging=false;hit.setPointerCapture(event.pointerId);});
+hit.addEventListener('pointermove',(event)=>{if(!down)return;if(!dragging&&(Math.abs(event.clientX-down.x)>threshold||Math.abs(event.clientY-down.y)>threshold)){dragging=true;hit.classList.add('dragging');window.mfPetHit.startDrag();}});
+function react(asset,duration){window.mfPetHit.reaction(asset,duration)}
+function handleClick(event){if(miniMode){window.mfPetHit.click();return}if(event.ctrlKey){window.mfPetHit.showDashboard();return}clickCount++;if(clickCount===1)firstClickLeft=event.clientX<hit.offsetWidth/2;if(clickTimer)clearTimeout(clickTimer);if(clickCount>=4){clickCount=0;react(Math.random()<.5?'clawd-react-double.svg':'clawd-react-double-jump.svg',3500);return}if(clickCount>=2){clickTimer=setTimeout(()=>{const asset=Math.random()<.5?'clawd-react-annoyed.svg':(firstClickLeft?'clawd-react-left.svg':'clawd-react-right.svg');clickCount=0;clickTimer=null;react(asset,asset==='clawd-react-annoyed.svg'?3500:2500)},clickWindow);return}clickTimer=setTimeout(()=>{clickCount=0;clickTimer=null},clickWindow)}
+function finish(event){if(!down&&!miniMode)return;const wasDragging=dragging;down=null;dragging=false;hit.classList.remove('dragging');if(wasDragging)window.mfPetHit.endDrag();else if(event?.button===0)handleClick(event);}
+hit.addEventListener('pointerup',finish);hit.addEventListener('pointercancel',finish);window.addEventListener('blur',()=>finish());
+document.addEventListener('contextmenu',(event)=>{event.preventDefault();window.mfPetHit.contextMenu();});
+window.mfPetHit.onState((state)=>{miniMode=!!state.miniMode;hit.style.cursor=miniMode?'default':'grab'});
+</script></body></html>

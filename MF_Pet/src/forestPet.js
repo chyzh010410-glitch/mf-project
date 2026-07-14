@@ -563,7 +563,23 @@ export function initForestPet(options = {}) {
     let dashboardFilter = "all";
     let nativeDragStart = null;
     let nativeDragging = false;
+    let nativeDragMoveFrame = null;
+    let pendingNativeDragPayload = null;
     let currentEyeMove = { dx: 0, dy: 0 };
+    let mousePassthrough = null;
+    const desktopDragThreshold = 7;
+
+    const desktopInputSelector = [
+        ".mf-pet__sprite-button",
+        ".mf-pet__panel",
+        ".mf-pet-menu",
+        ".mf-pet-notice",
+        ".mf-pet-permission",
+        ".mf-pet-session",
+        ".mf-pet-session-detail",
+        ".mf-pet-dashboard",
+        ".mf-pet-chat",
+    ].join(", ");
 
     function applyEyeMove(dx, dy) {
         currentEyeMove = { dx, dy };
@@ -573,12 +589,15 @@ export function initForestPet(options = {}) {
     function handleShellCursor(payload) {
         const snapshot = runtime.getSnapshot();
         const eyeTracking = snapshot.theme.eyeTracking;
+        const point = payload?.point;
+        const bounds = payload?.windowBounds;
+        if (point && bounds) {
+            updateDesktopMousePassthrough(point.x - bounds.x, point.y - bounds.y);
+        }
         if (!eyeTracking?.enabled || !eyeTracking.states?.includes(snapshot.state)) {
             applyEyeMove(0, 0);
             return;
         }
-        const point = payload?.point;
-        const bounds = payload?.windowBounds;
         if (!point || !bounds) return;
         const rect = toggle.getBoundingClientRect();
         const eyeScreenX = bounds.x + rect.left + rect.width * (eyeTracking.eyeRatioX ?? 0.5);
@@ -603,6 +622,137 @@ export function initForestPet(options = {}) {
         applyEyeMove(currentEyeMove.dx, currentEyeMove.dy);
     });
 
+    function setDesktopMousePassthrough(enabled) {
+        if (!window.mfPetShell?.setMousePassthrough) return;
+        const next = !!enabled;
+        if (mousePassthrough === next) return;
+        mousePassthrough = next;
+        window.mfPetShell.setMousePassthrough(next);
+    }
+
+    function elementCanReceivePointer(element) {
+        if (!element || element.hidden || element.getClientRects().length === 0) return false;
+        const style = window.getComputedStyle(element);
+        return style.display !== "none" && style.visibility !== "hidden" && style.pointerEvents !== "none";
+    }
+
+    function pointInElement(clientX, clientY, element) {
+        if (!elementCanReceivePointer(element)) return false;
+        const rect = element.getBoundingClientRect();
+        return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+    }
+
+    function pointInDesktopSurface(clientX, clientY) {
+        return [
+            toggle,
+            panel,
+            chat,
+            contextMenu,
+            notices,
+            permissions,
+            sessionHud,
+            sessionDetail,
+            dashboard,
+        ].some((element) => pointInElement(clientX, clientY, element));
+    }
+
+    function desktopSurfaceOpen(snapshot) {
+        return !!(
+            snapshot.chatOpen ||
+            snapshot.expanded ||
+            snapshot.dashboardOpen ||
+            contextMenuOpen ||
+            snapshot.notifications?.length ||
+            snapshot.permissionRequests?.some((request) => request.bubbleVisible !== false) ||
+            snapshot.sessionHudPinned ||
+            snapshot.sessionHudRevealed
+        );
+    }
+
+    function updateDesktopMousePassthrough(clientX, clientY) {
+        const snapshot = runtime.getSnapshot();
+        if (snapshot.shellMode !== "desktop") return;
+        if (dragging || nativeDragStart || nativeDragging) {
+            setDesktopMousePassthrough(false);
+            return;
+        }
+        const target = document.elementFromPoint(clientX, clientY);
+        const interactive = pointInDesktopSurface(clientX, clientY) || !!(target && target.closest(desktopInputSelector));
+        if (!interactive && contextMenuOpen) closeContextMenu();
+        setDesktopMousePassthrough(!(interactive || desktopSurfaceOpen(snapshot)));
+    }
+
+    function getShellPetRect() {
+        const rect = toggle.getBoundingClientRect();
+        return {
+            left: Math.round(rect.left),
+            top: Math.round(rect.top),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+        };
+    }
+
+    function getPointerOffset(event, rect) {
+        return {
+            x: Math.round(event.clientX - rect.left),
+            y: Math.round(event.clientY - rect.top),
+        };
+    }
+
+    function releaseTogglePointerCapture(pointerId) {
+        try {
+            toggle.releasePointerCapture(pointerId);
+        } catch {
+            // Pointer capture may already be gone after a native window move.
+        }
+    }
+
+    function beginNativeShellDrag(pointerOffset) {
+        if (!nativeDragStart || !window.mfPetShell?.beginDrag) return;
+        const payload = {
+            petRect: nativeDragStart.petRect || getShellPetRect(),
+            pointerOffset,
+            cursor: {
+                x: nativeDragStart.lastScreenX,
+                y: nativeDragStart.lastScreenY,
+            },
+        };
+        const activeDrag = nativeDragStart;
+        nativeDragStart.started = true;
+        window.mfPetShell.beginDrag(payload).then(() => {
+            if (nativeDragStart === activeDrag && nativeDragStart?.started && window.mfPetShell?.dragMove) {
+                queueNativeShellDragMove();
+            }
+        }).catch(() => {});
+    }
+
+    function queueNativeShellDragMove() {
+        if (!nativeDragStart?.started || !window.mfPetShell?.dragMove) return;
+        pendingNativeDragPayload = {
+            petRect: nativeDragStart.petRect || getShellPetRect(),
+            pointerOffset: nativeDragStart.pointerOffset,
+            cursor: {
+                x: nativeDragStart.lastScreenX,
+                y: nativeDragStart.lastScreenY,
+            },
+        };
+        if (nativeDragMoveFrame !== null) return;
+        nativeDragMoveFrame = window.requestAnimationFrame(() => {
+            nativeDragMoveFrame = null;
+            const payload = pendingNativeDragPayload;
+            pendingNativeDragPayload = null;
+            if (!nativeDragStart?.started || !payload) return;
+            window.mfPetShell.dragMove(payload);
+        });
+    }
+
+    function clearNativeDragMoveFrame() {
+        if (nativeDragMoveFrame === null) return;
+        window.cancelAnimationFrame(nativeDragMoveFrame);
+        nativeDragMoveFrame = null;
+        pendingNativeDragPayload = null;
+    }
+
     close.textContent = "×";
     dashboardClose.textContent = "×";
     chatClose.textContent = "×";
@@ -615,8 +765,8 @@ export function initForestPet(options = {}) {
     chat.append(chatHeader, chatMessages, chatComposer);
     dashboardHeader.append(dashboardTitle, dashboardClose);
     dashboard.append(dashboardHeader, dashboardFilters, dashboardBody);
-    panel.append(close, panelText, actions, chat);
-    root.append(notices, permissions, sessionHud, sessionDetail, dashboard, panel, contextMenu, toggle);
+    panel.append(close, panelText, actions);
+    root.append(notices, permissions, sessionHud, sessionDetail, dashboard, panel, chat, contextMenu, toggle);
     mount.append(root);
 
     const actionButtons = new Map();
@@ -888,6 +1038,42 @@ export function initForestPet(options = {}) {
         const text = resolveText(snapshot.lang);
         const menu = text.menu;
         const desktopShell = snapshot.shellMode === "desktop" && window.mfPetShell;
+        if (desktopShell) {
+            contextMenu.replaceChildren(
+                createMenuButton(snapshot.mini ? menu.miniExit : menu.miniEnter, () => {
+                    snapshot.mini ? api.exitMini() : api.enterMini({ edge: snapshot.miniEdge || "right" });
+                    closeContextMenu();
+                }),
+                createMenuButton(snapshot.doNotDisturb ? menu.doNotDisturbOff : menu.doNotDisturbOn, () => {
+                    api.setDoNotDisturb(!runtime.getSnapshot().doNotDisturb);
+                    closeContextMenu();
+                }),
+                createMenuDivider(),
+                createMenuButton(menu.dashboard, () => {
+                    desktopShell.openDashboard();
+                    closeContextMenu();
+                }),
+                createMenuButton(menu.chat, () => {
+                    api.openChat();
+                    closeContextMenu();
+                }),
+                createMenuButton(snapshot.permissionBubblesEnabled ? menu.permissionBubblesOff : menu.permissionBubblesOn, () => {
+                    api.setPermissionBubblesEnabled(!runtime.getSnapshot().permissionBubblesEnabled);
+                    closeContextMenu();
+                }),
+                createMenuDivider(),
+                createMenuButton(menu.settings || "Settings...", () => {
+                    desktopShell.openSettings();
+                    closeContextMenu();
+                }),
+                createMenuButton(menu.hide, () => {
+                    api.hide();
+                    closeContextMenu();
+                }),
+            );
+            contextMenu.hidden = false;
+            return;
+        }
         contextMenu.replaceChildren(
             createMenuButton(snapshot.expanded ? menu.collapse : menu.expand, () => {
                 snapshot.expanded ? api.collapse() : api.expand();
@@ -962,7 +1148,7 @@ export function initForestPet(options = {}) {
         const edge = rect.left < window.innerWidth / 2 ? "left" : "right";
         const isDesktop = snapshot.shellMode === "desktop";
         const menuWidth = isDesktop ? 294 : 224;
-        const menuHeight = isDesktop ? 560 : 390;
+        const menuHeight = isDesktop ? 382 : 390;
         const menuX = edge === "left"
             ? rect.right - 8
             : rect.left - menuWidth + 8;
@@ -1027,6 +1213,9 @@ export function initForestPet(options = {}) {
         renderContextMenu(snapshot);
         if (window.mfPetShell?.updateSnapshot) {
             window.mfPetShell.updateSnapshot(snapshot);
+        }
+        if (snapshot.shellMode === "desktop" && desktopSurfaceOpen(snapshot)) {
+            setDesktopMousePassthrough(false);
         }
     }
 
@@ -1347,12 +1536,21 @@ export function initForestPet(options = {}) {
             return;
         }
         const snapshot = runtime.getSnapshot();
+        if (snapshot.shellMode === "desktop" && snapshot.chatOpen) {
+            api.closeChat();
+            api.expand();
+            return;
+        }
         const hasHudSessions = snapshot.sessions.some((session) => !session.headless && !session.hiddenFromDashboard && session.state !== "idle");
         if (hasHudSessions && !snapshot.sessionHudPinned && !snapshot.sessionHudRevealed && !snapshot.expanded) {
             runtime.revealSessionHud();
             return;
         }
-        api.toggle();
+        if (snapshot.shellMode === "desktop") {
+            snapshot.expanded ? api.collapse() : api.expand();
+        } else {
+            api.toggle();
+        }
         const now = Date.now();
         clickTimes = [...clickTimes.filter((time) => now - time < 900), now];
         if (clickTimes.length >= 4) {
@@ -1388,16 +1586,21 @@ export function initForestPet(options = {}) {
     toggle.addEventListener("pointerdown", (event) => {
         if (event.button !== 0) return;
         const snapshot = runtime.getSnapshot();
-        if (snapshot.shellMode === "desktop" && config.desktopWindowDrag && window.mfPetShell?.moveBy) {
+        if (snapshot.shellMode === "desktop" && config.desktopWindowDrag && window.mfPetShell?.beginDrag && window.mfPetShell?.dragMove) {
+            const petRect = getShellPetRect();
             nativeDragStart = {
                 pointerId: event.pointerId,
-                x: event.screenX,
-                y: event.screenY,
+                startX: event.screenX,
+                startY: event.screenY,
+                lastScreenX: event.screenX,
+                lastScreenY: event.screenY,
+                petRect,
+                pointerOffset: getPointerOffset(event, petRect),
+                miniAtStart: !!snapshot.mini,
+                started: false,
                 moved: false,
             };
             toggle.setPointerCapture(event.pointerId);
-            runtime.setDragging(true);
-            event.preventDefault();
             return;
         }
         dragging = true;
@@ -1413,17 +1616,23 @@ export function initForestPet(options = {}) {
     });
     toggle.addEventListener("pointermove", (event) => {
         if (nativeDragStart) {
-            const dx = event.screenX - nativeDragStart.x;
-            const dy = event.screenY - nativeDragStart.y;
-            if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+            const dx = event.screenX - nativeDragStart.startX;
+            const dy = event.screenY - nativeDragStart.startY;
+            nativeDragStart.lastScreenX = event.screenX;
+            nativeDragStart.lastScreenY = event.screenY;
+            if (Math.abs(dx) >= desktopDragThreshold || Math.abs(dy) >= desktopDragThreshold) {
                 nativeDragging = true;
                 nativeDragStart.moved = true;
                 suppressNextClick = true;
-                window.mfPetShell.moveBy({ x: dx, y: dy });
-                nativeDragStart.x = event.screenX;
-                nativeDragStart.y = event.screenY;
+                if (!nativeDragStart.started) {
+                    runtime.setDragging(true, { reaction: false });
+                    if (nativeDragStart.miniAtStart) api.exitMini();
+                    beginNativeShellDrag(nativeDragStart.pointerOffset);
+                } else {
+                    queueNativeShellDragMove();
+                }
+                event.preventDefault();
             }
-            event.preventDefault();
             return;
         }
         if (!dragging || !dragStart) return;
@@ -1440,21 +1649,25 @@ export function initForestPet(options = {}) {
     toggle.addEventListener("pointerup", async (event) => {
         if (nativeDragStart) {
             const wasNativeDragging = nativeDragging || nativeDragStart.moved;
+            const dragWasStarted = nativeDragStart.started;
+            clearNativeDragMoveFrame();
             nativeDragStart = null;
             nativeDragging = false;
-            toggle.releasePointerCapture(event.pointerId);
+            releaseTogglePointerCapture(event.pointerId);
             runtime.setDragging(false);
             if (wasNativeDragging && window.mfPetShell?.finishDrag) {
                 const result = await window.mfPetShell.finishDrag();
                 if (result?.edge) runtime.enterMini({ edge: result.edge });
+            } else if (dragWasStarted && window.mfPetShell?.cancelDrag) {
+                window.mfPetShell.cancelDrag();
             }
-            event.preventDefault();
+            if (wasNativeDragging) event.preventDefault();
             return;
         }
         if (!dragging) return;
         dragging = false;
         dragStart = null;
-        toggle.releasePointerCapture(event.pointerId);
+        releaseTogglePointerCapture(event.pointerId);
         const rect = root.getBoundingClientRect();
         const nearRight = window.innerWidth - rect.right < 28;
         const nearLeft = rect.left < 28;

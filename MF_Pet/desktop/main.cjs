@@ -2,81 +2,220 @@ const path = require("path");
 const http = require("http");
 const https = require("https");
 const { app, BrowserWindow, Menu, Tray, ipcMain, screen } = require("electron");
+const {
+  createDragSnapshot,
+  computeAnchoredDragBounds,
+} = require("../clawd-on-desk/src/drag-position");
+const hitGeometry = require("../clawd-on-desk/src/hit-geometry");
+const clawdTheme = require("../clawd-on-desk/themes/clawd/theme.json");
 
 const DEFAULT_AGENT_CHAT_URL = process.env.MF_AGENT_CHAT_URL || "http://127.0.0.1:8092/api/agent/chat";
+const PET_SIZE = { width: 280, height: 280 };
 
-let petWindow = null;
+let renderWindow = null;
+let hitWindow = null;
+let surfaceWindow = null;
 let settingsWindow = null;
 let dashboardWindow = null;
 let tray = null;
 let cursorTimer = null;
 let topmostTimer = null;
-let latestSnapshot = null;
+let dragSnapshot = null;
+let miniEdge = null;
+let currentState = "idle";
+let currentAsset = "clawd-idle-follow.svg";
+let dragActive = false;
+let reactionTimer = null;
+const desktopPrefs = {
+  doNotDisturb: false,
+  lowPower: false,
+  muted: false,
+  permissionBubblesEnabled: true,
+  hideBubbles: false,
+  sessionHudPinned: false,
+};
 
-function getWorkAreaForBounds(bounds) {
-  const cx = bounds.x + bounds.width / 2;
-  const cy = bounds.y + bounds.height / 2;
-  const displays = screen.getAllDisplays();
-  if (!displays.length) return screen.getPrimaryDisplay().workArea;
-
-  let nearest = displays[0];
-  let nearestDistance = Infinity;
-  for (const display of displays) {
-    const area = display.workArea;
-    const dx = Math.max(area.x - cx, 0, cx - (area.x + area.width));
-    const dy = Math.max(area.y - cy, 0, cy - (area.y + area.height));
-    const distance = dx * dx + dy * dy;
-    if (distance < nearestDistance) {
-      nearest = display;
-      nearestDistance = distance;
-    }
-  }
-  return nearest.workArea;
+function isLive(win) {
+  return !!(win && !win.isDestroyed());
 }
 
-function clampBoundsToWorkArea(bounds, options = {}) {
+function getRenderBounds() {
+  return isLive(renderWindow) ? renderWindow.getBounds() : null;
+}
+
+function getWorkAreaForBounds(bounds) {
+  const point = {
+    x: Math.round(bounds.x + bounds.width / 2),
+    y: Math.round(bounds.y + bounds.height / 2),
+  };
+  return (screen.getDisplayNearestPoint(point) || screen.getPrimaryDisplay()).workArea;
+}
+
+function clampPetBounds(bounds) {
   const area = getWorkAreaForBounds(bounds);
-  const margin = Number.isFinite(options.visibleMargin) ? options.visibleMargin : 64;
   return {
     ...bounds,
-    x: Math.max(area.x - bounds.width + margin, Math.min(bounds.x, area.x + area.width - margin)),
-    y: Math.max(area.y, Math.min(bounds.y, area.y + area.height - margin)),
+    x: Math.max(area.x, Math.min(bounds.x, area.x + area.width - bounds.width)),
+    y: Math.max(area.y, Math.min(bounds.y, area.y + area.height - bounds.height)),
   };
 }
 
-function snapBoundsToEdge(bounds) {
-  const point = screen.getCursorScreenPoint();
-  const display = screen.getDisplayNearestPoint(point) || screen.getPrimaryDisplay();
-  const area = display.workArea || getWorkAreaForBounds(bounds);
-  const threshold = 42;
-  if (point.x <= area.x + threshold) {
-    return {
-      edge: "left",
-      bounds: { ...bounds, x: area.x },
-    };
-  }
-  if (point.x >= area.x + area.width - threshold) {
-    return {
-      edge: "right",
-      bounds: { ...bounds, x: area.x + area.width - bounds.width },
-    };
-  }
-  return { edge: null, bounds: clampBoundsToWorkArea(bounds) };
+function clampPetPosition(x, y, width, height) {
+  const clamped = clampPetBounds({ x, y, width, height });
+  return { x: clamped.x, y: clamped.y };
 }
 
-function sendToPet(channel, payload) {
-  if (!petWindow || petWindow.isDestroyed()) return;
-  petWindow.webContents.send(channel, payload);
+function setTopmost(win) {
+  if (!isLive(win) || !win.isVisible()) return;
+  win.setAlwaysOnTop(true, "pop-up-menu");
+  win.moveTop();
 }
 
-function sendToAuxWindows(channel, payload) {
-  [settingsWindow, dashboardWindow].forEach((win) => {
-    if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+function getHitBox() {
+  if (clawdTheme.fileHitBoxes[currentAsset]) return clawdTheme.fileHitBoxes[currentAsset];
+  if (clawdTheme.sleepingHitboxFiles.includes(currentAsset)) return clawdTheme.hitBoxes.sleeping;
+  if (clawdTheme.wideHitboxFiles.includes(currentAsset)) return clawdTheme.hitBoxes.wide;
+  return clawdTheme.hitBoxes.default;
+}
+
+function getHitRect(bounds = getRenderBounds()) {
+  if (!bounds) return null;
+  return hitGeometry.getHitRectScreen(clawdTheme, bounds, currentState, currentAsset, getHitBox());
+}
+
+function sendVisual(state, asset, options = {}) {
+  currentState = state;
+  currentAsset = asset;
+  sendToRender("mf-pet-render:visual", { state, asset, ...options });
+  syncHitWindow();
+}
+
+function syncHitWindow() {
+  if (!isLive(hitWindow)) return;
+  // Keep pointer capture stable during native dragging, exactly as Clawd does.
+  if (dragActive) return;
+  const bounds = getRenderBounds();
+  if (!bounds) return;
+  const area = getWorkAreaForBounds(bounds);
+  const hit = getHitRect(bounds);
+  if (!hit) return;
+  let x = Math.round(hit.left);
+  let y = Math.round(hit.top);
+  let width = Math.max(1, Math.round(hit.right - hit.left));
+  let height = Math.max(1, Math.round(hit.bottom - hit.top));
+  if (miniEdge === "left") {
+    const right = Math.min(area.x + width, Math.round(hit.right));
+    x = area.x;
+    width = Math.max(1, right - x);
+  }
+  if (miniEdge === "right") {
+    const right = area.x + area.width;
+    x = Math.max(area.x, Math.round(hit.left));
+    width = Math.max(1, right - x);
+  }
+  hitWindow.setBounds({
+    x,
+    y,
+    width,
+    height,
   });
+  if (typeof hitWindow.setShape === "function") hitWindow.setShape([{ x: 0, y: 0, width, height }]);
+  setTopmost(hitWindow);
 }
 
-function sendPetCommand(command, payload = {}) {
-  sendToPet("mf-pet-shell:command", { command, payload });
+function setPetBounds(bounds) {
+  if (!isLive(renderWindow)) return;
+  renderWindow.setBounds({ ...bounds, width: PET_SIZE.width, height: PET_SIZE.height });
+  syncHitWindow();
+  repositionSurface();
+}
+
+function exitMiniMode() {
+  if (!miniEdge) return;
+  const bounds = getRenderBounds();
+  if (!bounds) return;
+  const area = getWorkAreaForBounds(bounds);
+  miniEdge = null;
+  setPetBounds({
+    ...bounds,
+    x: bounds.x < area.x ? area.x + 12 : Math.min(bounds.x, area.x + area.width - bounds.width - 12),
+  });
+  sendToRender("mf-pet-render:mini", { edge: null });
+  if (isLive(hitWindow)) hitWindow.webContents.send("mf-pet-hit:state", { miniMode: false, currentState });
+  sendVisual("idle", "clawd-idle-follow.svg");
+  broadcastSnapshot();
+}
+
+function snapToEdge() {
+  const bounds = getRenderBounds();
+  if (!bounds) return;
+  const area = getWorkAreaForBounds(bounds);
+  const threshold = 48;
+  if (bounds.x <= area.x + threshold) {
+    miniEdge = "left";
+    setPetBounds({ ...bounds, x: area.x - Math.round(PET_SIZE.width * clawdTheme.miniMode.offsetRatio) });
+  } else if (bounds.x + bounds.width >= area.x + area.width - threshold) {
+    miniEdge = "right";
+    setPetBounds({ ...bounds, x: area.x + area.width - PET_SIZE.width + Math.round(PET_SIZE.width * clawdTheme.miniMode.offsetRatio) });
+  } else {
+    miniEdge = null;
+    setPetBounds(clampPetBounds(bounds));
+  }
+  sendToRender("mf-pet-render:mini", { edge: miniEdge });
+  sendVisual(miniEdge ? "mini-idle" : "idle", miniEdge ? "clawd-mini-idle.svg" : "clawd-idle-follow.svg");
+  if (isLive(hitWindow)) hitWindow.webContents.send("mf-pet-hit:state", { miniMode: !!miniEdge, currentState });
+  broadcastSnapshot();
+}
+
+function beginDrag() {
+  if (miniEdge) {
+    exitMiniMode();
+    return false;
+  }
+  const bounds = getRenderBounds();
+  if (!bounds) return false;
+  dragSnapshot = createDragSnapshot(screen.getCursorScreenPoint(), bounds, PET_SIZE);
+  dragActive = true;
+  sendVisual("drag", "clawd-react-drag.svg");
+  hideSurface();
+  return true;
+}
+
+function moveDrag() {
+  if (!dragSnapshot || !isLive(renderWindow)) return;
+  const cursor = screen.getCursorScreenPoint();
+  const next = computeAnchoredDragBounds(dragSnapshot, cursor, clampPetPosition);
+  if (!next) return;
+  setPetBounds(next);
+}
+
+function endDrag() {
+  if (!dragSnapshot) return;
+  dragSnapshot = null;
+  dragActive = false;
+  snapToEdge();
+}
+
+function sendToRender(channel, payload) {
+  if (isLive(renderWindow)) renderWindow.webContents.send(channel, payload);
+}
+
+function getDesktopSnapshot() {
+  return {
+    state: "idle",
+    mini: !!miniEdge,
+    miniEdge,
+    ...desktopPrefs,
+    theme: { name: "MF_Pet / Clawd", assetBaseUrl: "clawd-on-desk/assets/svg", ui: { spriteSize: PET_SIZE.width } },
+    sessions: [],
+  };
+}
+
+function broadcastSnapshot() {
+  const snapshot = getDesktopSnapshot();
+  [settingsWindow, dashboardWindow].forEach((win) => {
+    if (isLive(win)) win.webContents.send("mf-pet-shell:snapshot", snapshot);
+  });
 }
 
 function postJson(urlString, body) {
@@ -90,10 +229,7 @@ function postJson(urlString, body) {
       hostname: url.hostname,
       port: url.port,
       path: `${url.pathname}${url.search}`,
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Content-Length": data.length,
-      },
+      headers: { "Content-Type": "application/json; charset=utf-8", "Content-Length": data.length },
       timeout: 15000,
     }, (response) => {
       const chunks = [];
@@ -101,17 +237,9 @@ function postJson(urlString, body) {
       response.on("end", () => {
         const text = Buffer.concat(chunks).toString("utf8");
         let parsed = null;
-        if (text) {
-          try {
-            parsed = JSON.parse(text);
-          } catch {
-            parsed = { raw: text };
-          }
-        }
+        try { parsed = text ? JSON.parse(text) : null; } catch { parsed = { raw: text }; }
         if (response.statusCode < 200 || response.statusCode >= 300) {
-          const error = new Error(`AgentService HTTP ${response.statusCode}`);
-          error.response = parsed;
-          reject(error);
+          reject(new Error(`AgentService HTTP ${response.statusCode}`));
           return;
         }
         resolve(parsed);
@@ -119,212 +247,231 @@ function postJson(urlString, body) {
     });
     request.on("timeout", () => request.destroy(new Error("AgentService request timed out")));
     request.on("error", reject);
-    request.write(data);
-    request.end();
+    request.end(data);
   });
 }
 
-function assertPetTopmost() {
-  if (!petWindow || petWindow.isDestroyed() || !petWindow.isVisible()) return;
-  petWindow.setAlwaysOnTop(true, "pop-up-menu");
-  petWindow.moveTop();
+function createPetWindows() {
+  const area = screen.getPrimaryDisplay().workArea;
+  const initial = {
+    width: PET_SIZE.width,
+    height: PET_SIZE.height,
+    x: area.x + area.width - PET_SIZE.width - 24,
+    y: area.y + area.height - PET_SIZE.height - 24,
+  };
+  const shared = {
+    frame: false,
+    transparent: true,
+    resizable: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    alwaysOnTop: true,
+    show: false,
+    webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false },
+  };
+  const initialHit = getHitRect(initial);
+
+  renderWindow = new BrowserWindow({
+    ...shared,
+    ...initial,
+    focusable: false,
+    webPreferences: { ...shared.webPreferences, preload: path.join(__dirname, "render-preload.cjs") },
+  });
+  renderWindow.setIgnoreMouseEvents(true);
+  renderWindow.loadFile(path.join(__dirname, "render.html"));
+  renderWindow.once("ready-to-show", () => {
+    renderWindow.showInactive();
+    sendVisual(currentState, currentAsset);
+  });
+
+  hitWindow = new BrowserWindow({
+    ...shared,
+    width: Math.round(initialHit.right - initialHit.left),
+    height: Math.round(initialHit.bottom - initialHit.top),
+    x: Math.round(initialHit.left),
+    y: Math.round(initialHit.top),
+    focusable: true,
+    webPreferences: { ...shared.webPreferences, preload: path.join(__dirname, "hit-preload.cjs") },
+  });
+  if (typeof hitWindow.setShape === "function") hitWindow.setShape([{ x: 0, y: 0, width: Math.round(initialHit.right - initialHit.left), height: Math.round(initialHit.bottom - initialHit.top) }]);
+  hitWindow.loadFile(path.join(__dirname, "hit.html"));
+  hitWindow.once("ready-to-show", () => {
+    hitWindow.showInactive();
+    hitWindow.webContents.send("mf-pet-hit:state", { miniMode: false, currentState });
+  });
+  [renderWindow, hitWindow].forEach((win) => {
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    setTopmost(win);
+  });
 }
 
-function startShellLoops() {
-  clearInterval(cursorTimer);
-  clearInterval(topmostTimer);
-  cursorTimer = setInterval(() => {
-    if (!petWindow || petWindow.isDestroyed()) return;
-    const point = screen.getCursorScreenPoint();
-    const bounds = petWindow.getBounds();
-    sendToPet("mf-pet-shell:cursor", { point, windowBounds: bounds });
-  }, 50);
-  topmostTimer = setInterval(assertPetTopmost, 2000);
+function getSurfaceBounds(mode) {
+  const pet = getRenderBounds();
+  const area = getWorkAreaForBounds(pet);
+  const width = 368;
+  const height = mode === "chat" ? 462 : 330;
+  const placeLeft = pet.x + pet.width + width + 16 > area.x + area.width;
+  return {
+    width,
+    height,
+    x: placeLeft ? Math.max(area.x + 12, pet.x - width - 12) : Math.min(area.x + area.width - width - 12, pet.x + pet.width + 12),
+    y: Math.max(area.y + 12, Math.min(pet.y, area.y + area.height - height - 12)),
+  };
+}
+
+function repositionSurface() {
+  if (!isLive(surfaceWindow) || !surfaceWindow.isVisible()) return;
+  const mode = surfaceWindow.__mode || "menu";
+  surfaceWindow.setBounds(getSurfaceBounds(mode));
+}
+
+function showSurface(mode) {
+  if (miniEdge) exitMiniMode();
+  if (!isLive(surfaceWindow)) {
+    surfaceWindow = new BrowserWindow({
+      ...getSurfaceBounds(mode),
+      frame: false,
+      transparent: true,
+      resizable: false,
+      skipTaskbar: true,
+      hasShadow: true,
+      alwaysOnTop: true,
+      show: false,
+      webPreferences: { preload: path.join(__dirname, "surface-preload.cjs"), contextIsolation: true, nodeIntegration: false },
+    });
+    surfaceWindow.loadFile(path.join(__dirname, "surface.html"));
+    surfaceWindow.once("ready-to-show", () => {
+      surfaceWindow.show();
+      surfaceWindow.webContents.send("mf-pet-surface:show", { mode });
+    });
+    surfaceWindow.on("closed", () => { surfaceWindow = null; });
+  } else {
+    surfaceWindow.setBounds(getSurfaceBounds(mode));
+    surfaceWindow.show();
+    surfaceWindow.focus();
+    surfaceWindow.webContents.send("mf-pet-surface:show", { mode });
+  }
+  surfaceWindow.__mode = mode;
+  setTopmost(surfaceWindow);
+}
+
+function hideSurface() {
+  if (isLive(surfaceWindow)) surfaceWindow.hide();
 }
 
 function createAuxWindow(kind, options) {
   const existing = kind === "settings" ? settingsWindow : dashboardWindow;
-  if (existing && !existing.isDestroyed()) {
-    existing.show();
-    existing.focus();
-    return existing;
-  }
-
-  const cursor = screen.getCursorScreenPoint();
-  const display = screen.getDisplayNearestPoint(cursor) || screen.getPrimaryDisplay();
-  const area = display.workArea;
-  const width = options.width;
-  const height = options.height;
+  if (isLive(existing)) { existing.show(); existing.focus(); return existing; }
+  const area = (screen.getDisplayNearestPoint(screen.getCursorScreenPoint()) || screen.getPrimaryDisplay()).workArea;
   const win = new BrowserWindow({
-    width,
-    height,
-    x: Math.round(area.x + (area.width - width) / 2),
-    y: Math.round(area.y + (area.height - height) / 2),
-    minWidth: options.minWidth || width,
-    minHeight: options.minHeight || height,
-    title: options.title,
-    show: false,
-    backgroundColor: "#f6f7f9",
-    webPreferences: {
-      preload: path.join(__dirname, "preload.cjs"),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
+    width: options.width, height: options.height,
+    x: Math.round(area.x + (area.width - options.width) / 2), y: Math.round(area.y + (area.height - options.height) / 2),
+    minWidth: options.minWidth, minHeight: options.minHeight, title: options.title, show: false, backgroundColor: "#f6f7f9",
+    webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false },
   });
   win.setMenuBarVisibility(false);
   win.loadFile(path.join(__dirname, options.file));
   win.once("ready-to-show", () => {
     win.show();
-    if (latestSnapshot) win.webContents.send("mf-pet-shell:snapshot", latestSnapshot);
+    win.webContents.send("mf-pet-shell:snapshot", getDesktopSnapshot());
   });
-  win.on("closed", () => {
-    if (kind === "settings") settingsWindow = null;
-    if (kind === "dashboard") dashboardWindow = null;
-  });
-  if (kind === "settings") settingsWindow = win;
-  if (kind === "dashboard") dashboardWindow = win;
+  win.on("closed", () => { if (kind === "settings") settingsWindow = null; else dashboardWindow = null; });
+  if (kind === "settings") settingsWindow = win; else dashboardWindow = win;
   return win;
 }
 
-function openSettingsWindow() {
-  return createAuxWindow("settings", {
-    file: "settings.html",
-    title: "MF_Pet Settings",
-    width: 920,
-    height: 640,
-    minWidth: 760,
-    minHeight: 560,
-  });
-}
-
-function openDashboardWindow() {
-  return createAuxWindow("dashboard", {
-    file: "dashboard.html",
-    title: "MF_Pet Dashboard",
-    width: 920,
-    height: 620,
-    minWidth: 760,
-    minHeight: 520,
-  });
-}
-
-function createPetWindow() {
-  const display = screen.getPrimaryDisplay();
-  const width = 560;
-  const height = 420;
-  const x = display.workArea.x + display.workArea.width - width - 28;
-  const y = display.workArea.y + display.workArea.height - height - 28;
-
-  petWindow = new BrowserWindow({
-    x,
-    y,
-    width,
-    height,
-    frame: false,
-    transparent: true,
-    resizable: false,
-    movable: true,
-    show: false,
-    skipTaskbar: true,
-    hasShadow: false,
-    alwaysOnTop: true,
-    webPreferences: {
-      preload: path.join(__dirname, "preload.cjs"),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-  });
-
-  petWindow.setAlwaysOnTop(true, "pop-up-menu");
-  petWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  petWindow.setMenuBarVisibility(false);
-  petWindow.loadFile(path.join(__dirname, "index.html"));
-  petWindow.once("ready-to-show", () => petWindow.showInactive());
-  petWindow.on("closed", () => {
-    petWindow = null;
-  });
-}
+const openSettingsWindow = () => createAuxWindow("settings", { file: "settings.html", title: "MF_Pet Settings", width: 920, height: 640, minWidth: 760, minHeight: 560 });
+const openDashboardWindow = () => createAuxWindow("dashboard", { file: "dashboard.html", title: "MF_Pet Dashboard", width: 920, height: 620, minWidth: 760, minHeight: 520 });
 
 function createTray() {
-  const icon = path.join(__dirname, "..", "clawd-on-desk", "assets", "icon.png");
-  tray = new Tray(icon);
+  tray = new Tray(path.join(__dirname, "..", "clawd-on-desk", "assets", "icon.png"));
   tray.setToolTip("MF_Pet Desktop");
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: "Show Pet", click: () => petWindow && petWindow.showInactive() },
-    { label: "Hide Pet", click: () => petWindow && petWindow.hide() },
-    { type: "separator" },
-    { label: "Dashboard", click: openDashboardWindow },
-    { label: "Settings", click: openSettingsWindow },
-    { type: "separator" },
-    { label: "Quit", click: () => app.quit() },
+    { label: "Show Pet", click: () => { if (isLive(renderWindow)) renderWindow.showInactive(); if (isLive(hitWindow)) hitWindow.showInactive(); } },
+    { label: "Hide Pet", click: () => { if (isLive(renderWindow)) renderWindow.hide(); if (isLive(hitWindow)) hitWindow.hide(); hideSurface(); } },
+    { type: "separator" }, { label: "Dashboard", click: openDashboardWindow }, { label: "Settings", click: openSettingsWindow },
+    { type: "separator" }, { label: "Quit", click: () => app.quit() },
   ]));
 }
 
+ipcMain.on("mf-pet-hit:drag-start", () => beginDrag());
+ipcMain.on("mf-pet-hit:drag-end", endDrag);
+ipcMain.on("mf-pet-hit:click", () => { if (miniEdge) exitMiniMode(); });
+ipcMain.on("mf-pet-hit:context-menu", () => showSurface("menu"));
+ipcMain.on("mf-pet-hit:show-dashboard", openDashboardWindow);
+ipcMain.on("mf-pet-hit:reaction", (_event, payload = {}) => {
+  if (miniEdge || dragActive || !payload.asset) return;
+  clearTimeout(reactionTimer);
+  sendVisual("reaction", payload.asset);
+  reactionTimer = setTimeout(() => {
+    reactionTimer = null;
+    if (!miniEdge && !dragActive) sendVisual("idle", "clawd-idle-follow.svg");
+  }, Math.max(250, Number(payload.duration) || 2500));
+});
+ipcMain.on("mf-pet-surface:open-chat", () => showSurface("chat"));
+ipcMain.on("mf-pet-surface:open-menu", () => showSurface("menu"));
+ipcMain.on("mf-pet-surface:close", hideSurface);
+ipcMain.on("mf-pet-surface:open-settings", openSettingsWindow);
+ipcMain.on("mf-pet-surface:open-dashboard", openDashboardWindow);
+ipcMain.on("mf-pet-surface:hide-pet", () => { if (isLive(renderWindow)) renderWindow.hide(); if (isLive(hitWindow)) hitWindow.hide(); hideSurface(); });
+ipcMain.handle("mf-pet-surface:agent-chat", (_event, request) => postJson(DEFAULT_AGENT_CHAT_URL, request));
 ipcMain.handle("mf-pet-shell:get-capabilities", () => ({
-  shellMode: "desktop",
-  transparentWindow: true,
-  alwaysOnTop: true,
-  tray: true,
-  nativeFocus: true,
-  multiScreen: screen.getAllDisplays().length > 1,
+  shellMode: "desktop", transparentWindow: true, alwaysOnTop: true, tray: true, multiScreen: screen.getAllDisplays().length > 1,
 }));
-
-ipcMain.on("mf-pet-shell:move-by", (_event, delta) => {
-  if (!petWindow || !delta) return;
-  const bounds = petWindow.getBounds();
-  petWindow.setBounds(clampBoundsToWorkArea({
-    ...bounds,
-    x: bounds.x + Math.round(Number(delta.x) || 0),
-    y: bounds.y + Math.round(Number(delta.y) || 0),
-  }, { visibleMargin: 96 }));
-  assertPetTopmost();
-});
-
-ipcMain.handle("mf-pet-shell:finish-drag", () => {
-  if (!petWindow) return { edge: null };
-  const result = snapBoundsToEdge(petWindow.getBounds());
-  petWindow.setBounds(result.bounds);
-  assertPetTopmost();
-  return {
-    edge: result.edge,
-    bounds: petWindow.getBounds(),
-  };
-});
-
-ipcMain.on("mf-pet-shell:hide", () => {
-  if (petWindow) petWindow.hide();
-});
-
-ipcMain.on("mf-pet-shell:snapshot", (_event, snapshot) => {
-  latestSnapshot = snapshot || null;
-  sendToAuxWindows("mf-pet-shell:snapshot", latestSnapshot);
-});
-
-ipcMain.handle("mf-pet-shell:get-snapshot", () => latestSnapshot);
-
+ipcMain.handle("mf-pet-shell:get-snapshot", () => getDesktopSnapshot());
 ipcMain.on("mf-pet-shell:command", (_event, message = {}) => {
-  sendPetCommand(message.command, message.payload || {});
+  const { command, payload = {} } = message;
+  const preference = command.replace(/^set/, "").replace(/^./, (char) => char.toLowerCase());
+  if (Object.prototype.hasOwnProperty.call(desktopPrefs, preference)) {
+    desktopPrefs[preference] = !!payload.enabled;
+  } else if (command === "openChat") {
+    showSurface("chat");
+  } else if (command === "show") {
+    if (isLive(renderWindow)) renderWindow.showInactive();
+    if (isLive(hitWindow)) hitWindow.showInactive();
+  } else if (command === "enterMini") {
+    const bounds = getRenderBounds();
+    if (bounds) {
+      const area = getWorkAreaForBounds(bounds);
+      miniEdge = payload.edge === "left" ? "left" : "right";
+      setPetBounds({
+        ...bounds,
+        x: miniEdge === "left"
+          ? area.x - Math.round(PET_SIZE.width * clawdTheme.miniMode.offsetRatio)
+          : area.x + area.width - PET_SIZE.width + Math.round(PET_SIZE.width * clawdTheme.miniMode.offsetRatio),
+      });
+      sendToRender("mf-pet-render:mini", { edge: miniEdge });
+      sendVisual("mini-idle", "clawd-mini-idle.svg");
+      if (isLive(hitWindow)) hitWindow.webContents.send("mf-pet-hit:state", { miniMode: true, currentState });
+    }
+  } else if (command === "exitMini") {
+    exitMiniMode();
+  } else if (command === "resetPosition") {
+    const area = screen.getPrimaryDisplay().workArea;
+    miniEdge = null;
+    setPetBounds({ x: area.x + area.width - PET_SIZE.width - 24, y: area.y + area.height - PET_SIZE.height - 24 });
+    sendToRender("mf-pet-render:mini", { edge: null });
+  }
+  broadcastSnapshot();
 });
-
 ipcMain.on("mf-pet-shell:open-settings", openSettingsWindow);
 ipcMain.on("mf-pet-shell:open-dashboard", openDashboardWindow);
 
-ipcMain.handle("mf-pet-shell:agent-chat", async (_event, request) => {
-  return postJson(DEFAULT_AGENT_CHAT_URL, request);
-});
-
 app.whenReady().then(() => {
-  createPetWindow();
+  createPetWindows();
   createTray();
-  startShellLoops();
+  cursorTimer = setInterval(() => {
+    if (dragSnapshot) moveDrag();
+    if (isLive(renderWindow)) sendToRender("mf-pet-render:cursor", screen.getCursorScreenPoint());
+  }, 16);
+  topmostTimer = setInterval(() => [renderWindow, hitWindow, surfaceWindow].forEach(setTopmost), 2000);
+  screen.on("display-metrics-changed", () => { const bounds = getRenderBounds(); if (bounds && !miniEdge) setPetBounds(clampPetBounds(bounds)); });
 });
 
-app.on("window-all-closed", () => {
-  // Keep the tray process alive until the user chooses Quit.
-});
-
+app.on("window-all-closed", () => {});
 app.on("before-quit", () => {
   clearInterval(cursorTimer);
   clearInterval(topmostTimer);
   if (tray) tray.destroy();
+  if (isLive(hitWindow)) hitWindow.destroy();
 });

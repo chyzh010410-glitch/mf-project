@@ -79,6 +79,7 @@
 }
 
 .mf-pet[data-shell-mode="desktop"] .mf-pet__panel,
+.mf-pet[data-shell-mode="desktop"] .mf-pet-chat,
 .mf-pet[data-shell-mode="desktop"] .mf-pet-notices,
 .mf-pet[data-shell-mode="desktop"] .mf-pet-permissions,
 .mf-pet[data-shell-mode="desktop"] .mf-pet-session-detail-wrap,
@@ -105,9 +106,17 @@
 }
 
 .mf-pet[data-shell-mode="desktop"][data-mini="true"] .mf-pet__panel,
+.mf-pet[data-shell-mode="desktop"][data-mini="true"] .mf-pet-chat,
 .mf-pet[data-shell-mode="desktop"][data-mini="true"] .mf-pet-dashboard {
     right: var(--mf-pet-safe-right);
     bottom: calc(var(--mf-pet-safe-bottom) + 54px);
+}
+
+.mf-pet[data-shell-mode="desktop"][data-mini="true"][data-mini-edge="left"] .mf-pet__panel,
+.mf-pet[data-shell-mode="desktop"][data-mini="true"][data-mini-edge="left"] .mf-pet-chat,
+.mf-pet[data-shell-mode="desktop"][data-mini="true"][data-mini-edge="left"] .mf-pet-dashboard {
+    left: 44px;
+    right: auto;
 }
 
 .mf-pet[data-shell-mode="desktop"][data-mini="true"][data-mini-edge="left"] .mf-pet__sprite {
@@ -194,6 +203,12 @@
     animation: mf-pet-float 2.8s ease-in-out infinite;
 }
 
+.mf-pet[data-shell-mode="desktop"][data-state="idle"] .mf-pet__sprite-button,
+.mf-pet[data-shell-mode="desktop"][data-state="mini-idle"] .mf-pet__sprite-button,
+.mf-pet[data-dragging="true"] .mf-pet__sprite-button {
+    animation: none;
+}
+
 .mf-pet[data-dragging="true"] .mf-pet__sprite-button {
     cursor: grabbing;
     transform: scale(1.03);
@@ -226,7 +241,8 @@
 .mf-pet-permissions,
 .mf-pet-session-detail-wrap,
 .mf-pet-session-hud,
-.mf-pet-dashboard {
+.mf-pet-dashboard,
+.mf-pet-chat {
     width: min(var(--mf-pet-panel-width), calc(100vw - 32px));
     display: grid;
     gap: 8px;
@@ -1059,7 +1075,12 @@
 }
 
 .mf-pet[data-shell-mode="desktop"] .mf-pet-chat {
+    z-index: 2147483001;
+    margin-top: 0;
+    padding: 14px;
     border-top-color: rgba(23, 33, 30, 0.1);
+    border-radius: 14px;
+    pointer-events: auto;
 }
 
 .mf-pet[data-shell-mode="desktop"] .mf-pet-chat__bubble {

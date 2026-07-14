@@ -1,0 +1,23 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${MF_DB_URL}
+    username: ${MF_DB_USERNAME}
+    password: ${MF_DB_PASSWORD}
+  data:
+    redis:
+      host: ${MF_REDIS_HOST}
+      port: ${MF_REDIS_PORT:6379}
+      password: ${MF_REDIS_PASSWORD}
+
+knife4j:
+  enable: false
+
+mf:
+  internal-token: ${MF_EP_INTERNAL_TOKEN}
+  datacenter:
+    base-url: ${MF_DATACENTER_BASE_URL}
+    internal-token: ${MF_DATACENTER_INTERNAL_TOKEN}
+    internal-identity-secret: ${MF_DATACENTER_IDENTITY_SECRET}

@@ -16,7 +16,7 @@ service.interceptors.response.use((response) => {
   const res = response.data
   if (res.code && res.code !== 200) {
     console.error(`[${response.config.method?.toUpperCase()}] ${response.config.url}`, res.code, res.msg)
-    ElMessage.error(res.msg || '请求失败')
+    if (!response.config.silentError) ElMessage.error(res.msg || '请求失败')
     return Promise.reject(new Error(res.msg || '请求失败'))
   }
   return res
@@ -28,7 +28,7 @@ service.interceptors.response.use((response) => {
   } else {
     const msg = error.response?.data?.msg || '网络异常'
     console.error(`[${error.config?.method?.toUpperCase()}] ${error.config?.url}`, error.response?.status, msg)
-    ElMessage.error(msg)
+    if (!error.config?.silentError) ElMessage.error(msg)
   }
   return Promise.reject(error)
 })

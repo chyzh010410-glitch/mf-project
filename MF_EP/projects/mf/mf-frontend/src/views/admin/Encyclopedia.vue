@@ -63,7 +63,6 @@
           <el-col :span="12">
             <el-form-item label="词条名称" prop="name">
               <el-input v-model="formData.name" placeholder="请输入名称" />
-              <el-button type="warning" size="small" style="margin-left:8px" :loading="aiGenerating" @click="openAiDraft">AI 生成</el-button>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -165,10 +164,6 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="aiVisible" title="AI 生成百科词条" width="400px" :close-on-click-modal="false">
-      <el-form><el-form-item label="植物名称"><el-input v-model="aiName" placeholder="如: 巨峰葡萄" /></el-form-item></el-form>
-      <template #footer><el-button @click="aiVisible=false">取消</el-button><el-button type="primary" :loading="aiGenerating" @click="handleAiDraft">生成</el-button></template>
-    </el-dialog>
   </div>
 </template>
 
@@ -176,7 +171,6 @@
 import { reactive, ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Edit, Delete } from '@element-plus/icons-vue'
-import request from '@/utils/request'
 import { resolveImageUrl } from '@/utils/format'
 import {
   getEncyclopediaPage, getEncyclopediaDetail,
@@ -338,27 +332,6 @@ const handleTogglePublish = async (row) => {
     row.isPublished = row.isPublished === 1 ? 0 : 1
     ElMessage.success(row.isPublished ? '已发布' : '已下架')
   } catch { /* ignore */ }
-}
-
-const aiVisible = ref(false), aiName = ref(''), aiGenerating = ref(false)
-const openAiDraft = () => { aiName.value = ''; aiVisible.value = true }
-const handleAiDraft = async () => {
-  if (!aiName.value.trim()) return ElMessage.warning('请输入植物名称')
-  aiGenerating.value = true
-  try {
-    const res = await request({ url: '/admin/ai/encyclopedia/draft', method: 'post', data: { name: aiName.value } })
-    if (res.code === 200 && res.data) {
-      const d = res.data
-      formData.name = d.name || aiName.value
-      formData.scientificName = d.scientificName || ''; formData.alias = d.alias || ''
-      formData.pinyin = d.pinyin || ''; formData.family = d.family || ''
-      formData.genus = d.genus || ''; formData.description = d.description || ''
-      formData.morphology = d.morphology || ''; formData.distribution = d.distribution || ''
-      formData.habitat = d.habitat || ''; formData.careGuide = d.careGuide || ''
-      formData.valueDescription = d.valueDescription || ''; formData.tags = d.tags || ''
-      ElMessage.success('词条已生成，请检查修改后保存'); aiVisible.value = false
-    } else { ElMessage.error(res.msg || '生成失败') }
-  } catch { ElMessage.error('AI 服务暂不可用') } finally { aiGenerating.value = false }
 }
 
 onMounted(() => { fetchData() })

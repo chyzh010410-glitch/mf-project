@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
@@ -188,7 +188,7 @@
       platform: "windows",
       editor: "Codex",
       hookSource: "desktop-demo",
-      contextUsage: { used: 56000, limit: 100000, source: "mf-ai" },
+      contextUsage: { used: 56000, limit: 100000, source: "MF_AgentService" },
       pruneAfterMs: 300000,
       canFocus: true,
     });
@@ -294,13 +294,13 @@
       pet.updateSession("main", {
         state: "working",
         title: "官网问答",
-        contextUsage: { used: 144000, limit: 200000, source: "mf-ai" },
+        contextUsage: { used: 144000, limit: 200000, source: "MF_AgentService" },
         quotaUsage: {
           label: "MF AI 日额度",
           usedPercent: 72,
           remaining: 2800,
           resetAt: Date.now() + 1000 * 60 * 74,
-          source: "mf-ai",
+          source: "MF_AgentService",
         },
         provider: "MF AI",
         model: "planner",
@@ -308,7 +308,7 @@
       pet.updateSession("agent", {
         state: "sweeping",
         title: "AI 规划",
-        contextUsage: { used: 182000, limit: 200000, source: "mf-ai" },
+        contextUsage: { used: 182000, limit: 200000, source: "MF_AgentService" },
         quota_usage: {
           label: "OpenAI 限额",
           percent: 91,
@@ -510,3 +510,4 @@
   </script>
 </body>
 </html>
+

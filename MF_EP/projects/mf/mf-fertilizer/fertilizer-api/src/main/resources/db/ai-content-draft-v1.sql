@@ -1,0 +1,32 @@
+-- AI content draft table for DataCenter -> MF_EP controlled publishing.
+
+CREATE TABLE IF NOT EXISTS ai_content_draft (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    content_type VARCHAR(32) NOT NULL COMMENT 'faq/article/encyclopedia',
+    title VARCHAR(255) NOT NULL COMMENT '标题或FAQ问题',
+    summary VARCHAR(1000) DEFAULT NULL COMMENT '摘要',
+    content MEDIUMTEXT NOT NULL COMMENT '正文或FAQ答案',
+    tags VARCHAR(500) DEFAULT NULL COMMENT '标签',
+    crop VARCHAR(100) DEFAULT NULL COMMENT '作物',
+    tree_age VARCHAR(100) DEFAULT NULL COMMENT '树龄',
+    season VARCHAR(50) DEFAULT NULL COMMENT '季节',
+    region VARCHAR(100) DEFAULT NULL COMMENT '地区',
+    risk_level VARCHAR(32) NOT NULL DEFAULT 'low' COMMENT '风险等级',
+    source_references JSON DEFAULT NULL COMMENT '来源引用JSON',
+    ai_review_json JSON DEFAULT NULL COMMENT 'AI预审JSON',
+    status VARCHAR(32) NOT NULL DEFAULT 'draft' COMMENT 'draft/pending_publish/published/offline/rejected',
+    version INT NOT NULL DEFAULT 1 COMMENT '版本',
+    mf_ep_content_id BIGINT DEFAULT NULL COMMENT '发布后的MF_EP内容ID',
+    created_by VARCHAR(100) DEFAULT NULL COMMENT '创建方',
+    published_by VARCHAR(100) DEFAULT NULL COMMENT '发布人',
+    published_at DATETIME DEFAULT NULL COMMENT '发布时间',
+    remark VARCHAR(500) DEFAULT NULL COMMENT '备注',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+    PRIMARY KEY (id),
+    KEY idx_type_status (content_type, status),
+    KEY idx_risk_level (risk_level),
+    KEY idx_mf_ep_content_id (mf_ep_content_id),
+    KEY idx_create_time (create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI内容草稿表';
