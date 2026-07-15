@@ -26,12 +26,18 @@ public class MfEpClient {
 
     public JsonNode searchProducts(String keyword, String productType, Integer page, Integer size) {
         return getEnvelopeData(restClient.get()
-                .uri(uriBuilder -> uriBuilder.path("/client/products")
-                        .queryParam("keyword", nullToEmpty(keyword))
-                        .queryParam("productType", nullToEmpty(productType))
-                        .queryParam("page", page == null ? 1 : page)
-                        .queryParam("size", size == null ? 5 : size)
-                        .build())
+                .uri(uriBuilder -> {
+                    var builder = uriBuilder.path("/client/products")
+                            .queryParam("page", page == null ? 1 : page)
+                            .queryParam("size", size == null ? 5 : size);
+                    if (keyword != null && !keyword.isBlank()) {
+                        builder.queryParam("keyword", keyword);
+                    }
+                    if (productType != null && !productType.isBlank()) {
+                        builder.queryParam("productType", productType);
+                    }
+                    return builder.build();
+                })
                 .retrieve()
                 .body(ENVELOPE));
     }
@@ -145,4 +151,5 @@ public class MfEpClient {
     private String nullToEmpty(String value) {
         return value == null ? "" : value;
     }
+
 }

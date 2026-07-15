@@ -237,6 +237,109 @@ class CustomerAgentServiceTest {
                 && body.get("remark").toString().contains("suggested=faq,article,encyclopedia")));
     }
 
+    @Test
+    void pendingLogisticsContractDoesNotCallOrderApi() {
+        var mfEpClient = mock(MfEpClient.class);
+        var dataCenterClient = mock(DataCenterClient.class);
+        when(dataCenterClient.logConversation(any())).thenReturn(51L);
+        doNothing().when(dataCenterClient).logToolCall(any());
+        doNothing().when(dataCenterClient).reportUnresolved(any());
+
+        var response = service(mfEpClient, dataCenterClient)
+                .chat(new AgentChatRequest("contract-1", "物流到哪了", "u1", "client", "token"));
+
+        assertThat(response.answer()).isEqualTo("订单尚未发货或暂无物流信息。");
+        assertThat(response.fallbackReason()).isEqualTo("contract_pending_data");
+        verify(mfEpClient, org.mockito.Mockito.never()).orderStatus(any(), any());
+    }
+
+    @Test
+    void unsupportedAddressChangeUsesContractFallback() {
+        var mfEpClient = mock(MfEpClient.class);
+        var dataCenterClient = mock(DataCenterClient.class);
+        when(dataCenterClient.logConversation(any())).thenReturn(52L);
+        doNothing().when(dataCenterClient).logToolCall(any());
+        doNothing().when(dataCenterClient).reportUnresolved(any());
+
+        var response = service(mfEpClient, dataCenterClient)
+                .chat(new AgentChatRequest("contract-2", "改收货地址", "u1", "client", "token"));
+
+        assertThat(response.answer()).isEqualTo("暂不支持通过客服修改，请在订单页面或联系人工客服。");
+        assertThat(response.fallbackReason()).isEqualTo("contract_unsupported");
+    }
+
+    @Test
+    void clarificationStopsAfterTwoRoundsAndReportsUnresolved() {
+        var mfEpClient = mock(MfEpClient.class);
+        var dataCenterClient = mock(DataCenterClient.class);
+        when(dataCenterClient.logConversation(any())).thenReturn(53L, 54L, 55L);
+        doNothing().when(dataCenterClient).logToolCall(any());
+        doNothing().when(dataCenterClient).reportUnresolved(any());
+
+        var service = service(mfEpClient, dataCenterClient);
+        var first = service.chat(new AgentChatRequest("contract-3", "这个怎么样", "u1", "client", null));
+        var second = service.chat(new AgentChatRequest("contract-3", "这个怎么样", "u1", "client", null));
+        var third = service.chat(new AgentChatRequest("contract-3", "这个怎么样", "u1", "client", null));
+
+        assertThat(first.answer()).isEqualTo("你想问树苗、肥料、订单还是种植？");
+        assertThat(second.answer()).isEqualTo("你想问树苗、肥料、订单还是种植？");
+        assertThat(third.answer()).isEqualTo("暂时无法可靠回答，已建议转人工或记录到未解决问题池。");
+        assertThat(third.fallbackReason()).isEqualTo("knowledge_not_enough");
+        verify(dataCenterClient).reportUnresolved(any());
+    }
+
+    @Test
+    void outOfScopeQuestionUsesPlatformBoundary() {
+        var mfEpClient = mock(MfEpClient.class);
+        var dataCenterClient = mock(DataCenterClient.class);
+        when(dataCenterClient.logConversation(any())).thenReturn(56L);
+        doNothing().when(dataCenterClient).logToolCall(any());
+
+        var response = service(mfEpClient, dataCenterClient)
+                .chat(new AgentChatRequest("contract-4", "帮我看病", "u1", "client", null));
+
+        assertThat(response.intent()).isEqualTo("out_of_scope");
+        assertThat(response.answer()).isEqualTo("该问题超出平台范围，建议咨询相应专业人士。");
+        assertThat(response.resolved()).isTrue();
+    }
+
+    @Test
+    void confirmedProductSearchUsesContractRouteAndDoesNotLetModelInventStock() throws Exception {
+        var mfEpClient = mock(MfEpClient.class);
+        when(mfEpClient.searchProducts(eq("苹果苗"), eq(null), eq(1), eq(5)))
+                .thenReturn(objectMapper.readTree("{\"records\":[]}"));
+        var dataCenterClient = mock(DataCenterClient.class);
+        when(dataCenterClient.logConversation(any())).thenReturn(57L);
+        doNothing().when(dataCenterClient).logToolCall(any());
+        doNothing().when(dataCenterClient).reportUnresolved(any());
+        AiCompletionGateway model = (prompt, message) -> Optional.of("平台没有上架任何商品");
+
+        var response = service(mfEpClient, dataCenterClient, model)
+                .chat(new AgentChatRequest("contract-5", "搜索苹果苗", "u1", "client", null));
+
+        assertThat(response.intent()).isEqualTo("product");
+        assertThat(response.answer()).isEqualTo("没有找到在售且有库存的相关商品。");
+        assertThat(response.answer()).doesNotContain("平台没有上架");
+        verify(mfEpClient).searchProducts(eq("苹果苗"), eq(null), eq(1), eq(5));
+    }
+
+    @Test
+    void confirmedWateringQuestionUsesContractEmptyResponseWhenKnowledgeIsUnavailable() throws Exception {
+        var mfEpClient = mock(MfEpClient.class);
+        when(mfEpClient.searchEncyclopedia(eq("果树夏天浇多少水"), eq(1), eq(5)))
+                .thenReturn(objectMapper.readTree("{\"records\":[]}"));
+        var dataCenterClient = mock(DataCenterClient.class);
+        when(dataCenterClient.logConversation(any())).thenReturn(58L);
+        doNothing().when(dataCenterClient).logToolCall(any());
+        doNothing().when(dataCenterClient).reportUnresolved(any());
+
+        var response = service(mfEpClient, dataCenterClient)
+                .chat(new AgentChatRequest("contract-6", "果树夏天浇多少水？", "u1", "client", null));
+
+        assertThat(response.intent()).isEqualTo("encyclopedia");
+        assertThat(response.answer()).isEqualTo("当前没有足够依据，请先观察土壤并咨询人工。");
+    }
+
     @SuppressWarnings("unchecked")
     private CustomerAgentService service(MfEpClient mfEpClient, DataCenterClient dataCenterClient) {
         return service(mfEpClient, dataCenterClient, null);
@@ -259,6 +362,7 @@ class CustomerAgentServiceTest {
                 new DataCenterTools(dataCenterClient, executor),
                 new KnowledgeGapAdvisor(),
                 new PlatformProfileService(new DefaultResourceLoader()),
+                new CustomerServiceContractService(new DefaultResourceLoader()),
                 provider
         );
     }

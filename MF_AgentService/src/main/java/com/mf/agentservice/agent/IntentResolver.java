@@ -32,6 +32,9 @@ public class IntentResolver {
 
     public AgentIntent resolve(String message) {
         String normalized = normalize(message);
+        if (containsAny(normalized, List.of("看病", "医疗", "法律", "投资", "理财"))) {
+            return AgentIntent.OUT_OF_SCOPE;
+        }
         if (isShortGreeting(normalized)) {
             return AgentIntent.GREETING;
         }

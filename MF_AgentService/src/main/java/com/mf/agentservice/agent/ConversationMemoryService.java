@@ -56,7 +56,7 @@ public class ConversationMemoryService {
 
     private boolean isLowRisk(AgentIntent intent) {
         return intent == AgentIntent.DIRECT || intent == AgentIntent.COMPANY || intent == AgentIntent.PRODUCT
-                || intent == AgentIntent.ENCYCLOPEDIA || intent == AgentIntent.MERCHANT;
+                || intent == AgentIntent.ENCYCLOPEDIA || intent == AgentIntent.MERCHANT || intent == AgentIntent.UNKNOWN;
     }
 
     private static final class SessionMemory {

@@ -46,6 +46,7 @@ public class CustomerAgentService {
     private final DataCenterTools dataCenterTools;
     private final KnowledgeGapAdvisor knowledgeGapAdvisor;
     private final PlatformProfileService platformProfileService;
+    private final CustomerServiceContractService customerServiceContractService;
     private final Optional<AiCompletionGateway> aiCompletionGateway;
 
     public CustomerAgentService(
@@ -60,6 +61,7 @@ public class CustomerAgentService {
             DataCenterTools dataCenterTools,
             KnowledgeGapAdvisor knowledgeGapAdvisor,
             PlatformProfileService platformProfileService,
+            CustomerServiceContractService customerServiceContractService,
             ObjectProvider<AiCompletionGateway> aiCompletionGateway
     ) {
         this.intentResolver = intentResolver;
@@ -73,6 +75,7 @@ public class CustomerAgentService {
         this.dataCenterTools = dataCenterTools;
         this.knowledgeGapAdvisor = knowledgeGapAdvisor;
         this.platformProfileService = platformProfileService;
+        this.customerServiceContractService = customerServiceContractService;
         this.aiCompletionGateway = Optional.ofNullable(aiCompletionGateway.getIfAvailable());
     }
 
@@ -86,10 +89,11 @@ public class CustomerAgentService {
 
     private AgentChatResponse chat(AgentChatRequest request, boolean persist) {
         var context = new ToolExecutionContext();
-        var intent = resolveIntent(request);
+        var contractFlow = customerServiceContractService.match(request.message()).orElse(null);
+        var intent = resolveIntent(request, contractFlow);
         var retrievalQuery = retrievalQuery(request, intent);
-        var answer = answer(request, intent, context, retrievalQuery);
-        String fallbackReason = fallbackReason(intent, answer, context);
+        var answer = answer(request, intent, context, retrievalQuery, contractFlow);
+        String fallbackReason = fallbackReason(intent, answer, context, contractFlow);
         KnowledgeGap knowledgeGap = knowledgeGapAdvisor.assess(intent, fallbackReason, request.message()).orElse(null);
         var resolved = fallbackReason == null;
 
@@ -135,7 +139,11 @@ public class CustomerAgentService {
         return intent == AgentIntent.UNKNOWN ? 30 : 80;
     }
 
-    private AgentIntent resolveIntent(AgentChatRequest request) {
+    private AgentIntent resolveIntent(AgentChatRequest request, CustomerServiceContractService.ContractFlow contractFlow) {
+        AgentIntent contractIntent = intentForContract(contractFlow);
+        if (contractIntent != null) {
+            return contractIntent;
+        }
         AgentIntent intent = intentResolver.resolve(request.message());
         if (intent == AgentIntent.ENCYCLOPEDIA && isShortPlantProductFollowUp(request.message())
                 && conversationMemoryService.latestTurn(request.sessionId())
@@ -151,6 +159,19 @@ public class CustomerAgentService {
                 : intent;
     }
 
+    private AgentIntent intentForContract(CustomerServiceContractService.ContractFlow contractFlow) {
+        if (contractFlow == null || !contractFlow.hasStatus("confirmed")) {
+            return null;
+        }
+        return switch (contractFlow.id()) {
+            case "01", "02", "06", "08", "10" -> AgentIntent.PRODUCT;
+            case "11", "14", "15", "17", "19", "20", "21", "22" -> AgentIntent.ENCYCLOPEDIA;
+            case "23", "25" -> AgentIntent.ORDER;
+            case "31", "32", "33", "34" -> AgentIntent.MERCHANT;
+            default -> null;
+        };
+    }
+
     private boolean isShortPlantProductFollowUp(String message) {
         String normalized = message == null ? "" : message.replaceAll("[?\\uFF1F\\uFF01\\uFF0C,\\s]", "").trim();
         boolean isPlant = normalized.contains("苹果树") || normalized.contains("果树")
@@ -161,22 +182,54 @@ public class CustomerAgentService {
         return normalized.length() <= 12 && isPlant && !isCareQuestion;
     }
 
-    private String answer(AgentChatRequest request, AgentIntent intent, ToolExecutionContext context, String retrievalQuery) {
-        return switch (intent) {
+    private String answer(AgentChatRequest request, AgentIntent intent, ToolExecutionContext context, String retrievalQuery,
+                          CustomerServiceContractService.ContractFlow contractFlow) {
+        if (contractFlow != null && (contractFlow.hasStatus("pending_data") || contractFlow.hasStatus("unsupported"))) {
+            return contractFlow.response().empty();
+        }
+        if (contractFlow != null && "37".equals(contractFlow.id())) {
+            return clarificationAnswer(request);
+        }
+        if (contractFlow != null && "39".equals(contractFlow.id())) {
+            return contractFlow.response().empty();
+        }
+        if (contractFlow != null && "40".equals(contractFlow.id())) {
+            return contractFlow.response().empty();
+        }
+        String response = switch (intent) {
             case GREETING -> directAnswer(request.message(), greetingAnswer());
             case HELP -> directAnswer(request.message(), helpAnswer());
             case COMPANY -> companyAnswer();
             case UNSAFE_ACTION -> unsafeAnswer();
             case ORDER -> answerOrder(request, context);
             case MERCHANT -> answerMerchant(context);
-            case PRODUCT -> answerProduct(request, context);
+            case PRODUCT -> answerProduct(request, context, contractFlow);
             case ENCYCLOPEDIA -> answerKnowledge(retrievalQuery, context);
             case DIRECT -> directAnswer(request.message(), defaultDirectAnswer());
+            case OUT_OF_SCOPE -> outOfScopeAnswer();
             case UNKNOWN -> directAnswer(request.message(), unknownAnswer());
         };
+        if (contractFlow != null && contractFlow.hasStatus("confirmed")
+                && response.contains("无法可靠判断")) {
+            return contractFlow.response().empty();
+        }
+        return response;
     }
 
-    private String answerProduct(AgentChatRequest request, ToolExecutionContext context) {
+    private String clarificationAnswer(AgentChatRequest request) {
+        long previousClarifications = conversationMemoryService.recentTurns(request.sessionId()).stream()
+                .filter(turn -> turn.intent() == AgentIntent.UNKNOWN)
+                .count();
+        if (previousClarifications >= 2) {
+            return customerServiceContractService.match("还是不知道")
+                    .map(flow -> flow.response().empty())
+                    .orElse("暂时无法可靠回答，已建议转人工或记录到未解决问题池。");
+        }
+        return "你想问树苗、肥料、订单还是种植？";
+    }
+
+    private String answerProduct(AgentChatRequest request, ToolExecutionContext context,
+                                 CustomerServiceContractService.ContractFlow contractFlow) {
         var keyword = productKeyword(request.message());
         var result = productTools.search(context, keyword, null);
         if (!Boolean.TRUE.equals(result.success())) {
@@ -184,11 +237,14 @@ public class CustomerAgentService {
         }
         int productCount = itemCount(result.value());
         if (productCount == 0) {
+            if (contractFlow != null && contractFlow.hasStatus("confirmed")) {
+                return contractFlow.response().empty();
+            }
             return conversationalProductAnswer(request, result.value(), "可以呀。我查了当前商品库，暂时没有找到直接匹配的商品。你可以补充树苗品种、地区和预算，我再帮你换个关键词继续找。");
         }
-        return conversationalProductAnswer(request, result.value(), "可以，我先帮你从苗丰商品库里筛了一下，找到 " + productCount
+        return "可以，我先帮你从苗丰商品库里筛了一下，找到 " + productCount
                 + " 款比较匹配的商品：" + productSummary(result.value())
-                + "。选购时建议重点看适用场景、养分配比和库存；如果你告诉我种什么、树龄和预算，我还能继续帮你挑得更准。");
+                + "。选购时建议重点看适用场景、养分配比和库存；如果你告诉我种什么、树龄和预算，我还能继续帮你挑得更准。";
     }
 
     private String answerKnowledge(String query, ToolExecutionContext context) {
@@ -305,6 +361,12 @@ public class CustomerAgentService {
         return "我愿意继续帮你一起看，不过现在的信息还不太够。你可以像聊天一样补充一下：是种什么作物、遇到了什么症状、想找什么商品，还是订单/商家方面的问题？我会根据你补充的内容继续判断。";
     }
 
+    private String outOfScopeAnswer() {
+        return customerServiceContractService.match("帮我看病")
+                .map(flow -> flow.response().empty())
+                .orElse("该问题超出平台范围，建议咨询相应专业人士。");
+    }
+
     private String upstreamAnswer(String subject, ToolFailureReason reason, String nextStep) {
         if (reason == ToolFailureReason.UPSTREAM_TIMEOUT) {
             return "我是苗丰智能客服，" + subject + "查询响应超时。" + nextStep;
@@ -380,7 +442,24 @@ public class CustomerAgentService {
         }
     }
 
-    private String fallbackReason(AgentIntent intent, String answer, ToolExecutionContext context) {
+    private String fallbackReason(AgentIntent intent, String answer, ToolExecutionContext context,
+                                  CustomerServiceContractService.ContractFlow contractFlow) {
+        if (contractFlow != null && contractFlow.hasStatus("pending_data")) {
+            return "contract_pending_data";
+        }
+        if (contractFlow != null && contractFlow.hasStatus("unsupported")) {
+            return "contract_unsupported";
+        }
+        if (contractFlow != null && "40".equals(contractFlow.id())) {
+            return "knowledge_not_enough";
+        }
+        if (contractFlow != null && "37".equals(contractFlow.id())
+                && answer.contains("暂时无法可靠回答")) {
+            return "knowledge_not_enough";
+        }
+        if (contractFlow != null && "37".equals(contractFlow.id())) {
+            return null;
+        }
         if (intent == AgentIntent.UNSAFE_ACTION) {
             return "unsafe_action_blocked";
         }
@@ -417,7 +496,7 @@ public class CustomerAgentService {
         if (genericProductQuestion(message)) {
             return "";
         }
-        String keyword = intentResolver.keyword(message);
+        String keyword = intentResolver.keyword(message).replaceFirst("^(搜索|搜|查找|找)", "").trim();
         if (isShortPlantProductFollowUp(message)) {
             return keyword.replaceFirst("^(种|想种|我要种)", "").replaceFirst("(吧|呢|呀)$", "");
         }

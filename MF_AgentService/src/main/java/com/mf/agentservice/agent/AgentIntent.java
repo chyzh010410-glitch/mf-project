@@ -10,6 +10,7 @@ public enum AgentIntent {
     ORDER("order"),
     MERCHANT("merchant"),
     UNSAFE_ACTION("unsafe_action"),
+    OUT_OF_SCOPE("out_of_scope"),
     UNKNOWN("unknown");
 
     private final String code;

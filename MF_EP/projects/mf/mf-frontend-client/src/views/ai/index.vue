@@ -7,7 +7,6 @@
       </div>
       <div class="ai-actions">
         <el-button @click="startNewSession">新建会话</el-button>
-        <el-button type="danger" plain :disabled="messages.length <= 1" @click="clearSession">清空当前会话</el-button>
       </div>
     </div>
 
@@ -38,9 +37,8 @@
 
 <script setup>
 import { ref, nextTick, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/store/auth'
-import { chatWithAgent, deleteAiConversation, getAiConversations } from '@/api/agent'
+import { chatWithAgent, getAiConversations } from '@/api/agent'
 
 const MAX_MESSAGES = 50
 const authStore = useAuthStore()
@@ -165,19 +163,6 @@ const startNewSession = () => {
   localStorage.setItem(activeSessionKey(), sessionId.value)
   messages.value = [welcomeMessage()]
   saveLocalMessages()
-}
-
-const clearSession = async () => {
-  await ElMessageBox.confirm('确认清空当前 AI 客服会话？', '清空会话', { type: 'warning' })
-  try {
-    await deleteAiConversation(sessionId.value)
-  } catch (error) {
-    console.debug('AI server history clear skipped; local conversation will be cleared.', error)
-  }
-  localStorage.removeItem(cacheKey())
-  messages.value = [welcomeMessage()]
-  saveLocalMessages()
-  ElMessage.success('当前会话已清空')
 }
 
 const scrollBottom = () => {
