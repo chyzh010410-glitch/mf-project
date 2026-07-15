@@ -66,6 +66,7 @@ logs/
 # ----------------------
 # Environment & secrets
 # ----------------------
+Folder_description/
 .env
 .env.*
 !.env.example

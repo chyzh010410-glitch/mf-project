@@ -1,7 +1,8 @@
 import { initForestPet } from "../core/forestPet.js";
+import { navigateToMall } from "../../shared/mallLink.js";
 
 const MF_LINKS = {
-    mall: "#",
+    mall: null,
     encyclopedia: "#",
     ai: "#",
     merchant: "#",
@@ -38,6 +39,12 @@ export function initForestPetAdapter() {
         storageKey: "mf-website-forest-pet",
         initiallyVisible: false,
         initiallyExpanded: false,
+        onAction({ action }) {
+            if (action !== "mall") return false;
+
+            navigateToMall();
+            return true;
+        },
         onAskAi({ api }) {
             window.setTimeout(() => {
                 api.setState("success");
