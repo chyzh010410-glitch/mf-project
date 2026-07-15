@@ -146,7 +146,7 @@ Wait-Port "MF_EP API" $MFPorts.MfEpApi 180
 Start-CmdService "mf-datacenter" (Join-Path $root "MF_DataCenter") "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-prod-api.ps1" $MFPorts.MfDataCenterApi
 Wait-Port "MF_DataCenter API" $MFPorts.MfDataCenterApi
 
-Start-CmdService "mf-agent-service" (Join-Path $root "MF_AgentService") "mvn spring-boot:run" $MFPorts.MfAgentService
+Start-CmdService "mf-agent-service" (Join-Path $root "MF_AgentService") "mvn -pl customer-agent-app -am package && java -jar customer-agent-app\target\customer-agent-app-0.0.1-SNAPSHOT.jar" $MFPorts.MfAgentService
 Wait-Port "MF_AgentService" $MFPorts.MfAgentService
 
 Start-CmdService "mf-ep-client" (Join-Path $root "MF_EP\projects\mf\mf-frontend-client") "npm run dev -- --host 127.0.0.1 --port 5174" $MFPorts.MfEpClient
