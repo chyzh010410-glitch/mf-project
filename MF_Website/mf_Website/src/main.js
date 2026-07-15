@@ -9,6 +9,7 @@ import { initSplitCards } from "./sections/splitCards.js";
 import { initClientPanels } from "./sections/clientPanels.js";
 import { initSmoothScroll, resetScrollPosition } from "./shared/scroll.js";
 import { initLanguageSystem } from "./shared/i18n.js";
+import { bindMallEntrypoints } from "./shared/mallLink.js";
 import { initForestPetAdapter } from "./pet/index.js";
 
 gsap.registerPlugin(ScrollTrigger, SplitText, CustomEase);
@@ -24,6 +25,7 @@ window.addEventListener("load", () => {
     const lenis = initSmoothScroll();
     resetScrollPosition(lenis);
     initLanguageSystem();
+    bindMallEntrypoints();
     initForestPetAdapter();
     initPreloaderIntro(lenis);
     initLocationScroll();
