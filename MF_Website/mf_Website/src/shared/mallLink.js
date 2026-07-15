@@ -26,7 +26,7 @@ export function navigateToMall() {
     const mallUrl = getMallUrl();
     if (!mallUrl) return false;
 
-    window.location.assign(mallUrl);
+    window.open(mallUrl, "_blank", "noopener,noreferrer");
     return true;
 }
 
